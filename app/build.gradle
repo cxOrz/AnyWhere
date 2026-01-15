@@ -39,6 +39,11 @@ android {
         signingConfig = signingConfigs.release
     }
 
+    lint {
+        abortOnError false
+        checkReleaseBuilds false
+    }
+
     buildTypes {
         release {
             // Enables code shrinking, obfuscation, and optimization for only

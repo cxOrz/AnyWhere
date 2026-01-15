@@ -615,7 +615,11 @@ public class MainActivity extends BaseActivity implements SensorEventListener {
         double alt = Double.parseDouble(sharedPreferences.getString("setting_altitude", "55.0"));
         serviceGoIntent.putExtra(ALT_MSG_ID, alt);
 
-        startForegroundService(serviceGoIntent);
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            startForegroundService(serviceGoIntent);
+        } else {
+            startService(serviceGoIntent);
+        }
         XLog.d("startForegroundService: ServiceGo");
 
         isMockServStart = true;
