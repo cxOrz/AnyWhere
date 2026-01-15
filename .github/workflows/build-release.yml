@@ -1,0 +1,64 @@
+name: Build Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  Build:
+    name: Release APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # 用于 Changelog 生成
+
+      - name: set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'adopt'
+          cache: gradle
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build Release APK
+        run: ./gradlew assembleRelease
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AnyWhere-Release
+          path: app/build/outputs/apk/release/*.apk
+
+      - name: Generate Changelog
+        id: changelog
+        uses: ardalanamini/auto-changelog@v4
+        with:
+          github-token: ${{ github.token }}
+          commit-types: |
+            feat: New Features
+            fix: Bug Fixes
+            refactor: Refactors
+            perf: Performance
+            build: Build
+            ci: CI
+            docs: Documentation
+          default-commit-type: Other Changes
+          mention-authors: true
+          mention-new-contributors: true
+          include-compare-link: true
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          token: ${{ github.token }}
+          body: ${{ steps.changelog.outputs.changelog }}
+          files: app/build/outputs/apk/release/*.apk
