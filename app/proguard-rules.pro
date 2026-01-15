@@ -1,0 +1,4 @@
+-dontwarn org.osmdroid.**
+-keep class org.osmdroid.** { *; }
+-dontwarn org.apache.james.mime4j.**
+-keep class org.apache.james.mime4j.** { *; }
