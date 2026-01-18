@@ -33,6 +33,7 @@ import com.cxorz.anywhere.MainActivity;
 import com.cxorz.anywhere.R;
 import com.cxorz.anywhere.joystick.JoyStick;
 
+@SuppressWarnings("deprecation")
 public class ServiceGo extends Service {
     // 定位相关变量
     public static final double DEFAULT_LAT = 36.667662;

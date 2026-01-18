@@ -51,35 +51,6 @@
             android:maxLines="1" />
     </com.google.android.material.textfield.TextInputLayout>
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Coordinate Type"
-        android:textAppearance="?attr/textAppearanceLabelLarge"
-        android:textColor="?attr/colorOnSurfaceVariant"
-        android:layout_marginBottom="4dp"/>
-
-    <RadioGroup
-        android:id="@+id/RadioGroupMapType"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:layout_marginBottom="24dp">
-
-        <com.google.android.material.radiobutton.MaterialRadioButton
-            android:id="@+id/pos_type_bd"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginEnd="16dp"
-            android:checked="true"
-            android:text="@string/input_position_baidu" />
-
-        <com.google.android.material.radiobutton.MaterialRadioButton
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/input_position_gps" />
-    </RadioGroup>
-
     <!-- Actions -->
     <LinearLayout
         android:layout_width="match_parent"

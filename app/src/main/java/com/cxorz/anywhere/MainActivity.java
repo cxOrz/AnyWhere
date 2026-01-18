@@ -43,6 +43,8 @@ import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.preference.PreferenceManager;
 
 import com.elvishew.xlog.XLog;
+import com.google.android.material.bottomnavigation.BottomNavigationView;
+import com.google.android.material.button.MaterialButton;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.navigation.NavigationView;
 import com.google.android.material.snackbar.Snackbar;
@@ -205,6 +207,19 @@ public class MainActivity extends BaseActivity implements SensorEventListener {
         initSearchView();
         
         handleIntent(getIntent());
+
+        // Modern way to handle back press
+        getOnBackPressedDispatcher().addCallback(this, new androidx.activity.OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                DrawerLayout drawer = findViewById(R.id.drawer_layout);
+                if (drawer.isDrawerOpen(GravityCompat.START)) {
+                    drawer.closeDrawer(GravityCompat.START);
+                } else {
+                    finish();
+                }
+            }
+        });
     }
 
     @Override
@@ -287,11 +302,6 @@ public class MainActivity extends BaseActivity implements SensorEventListener {
         mSearchHistoryDB.close();
 
         super.onDestroy();
-    }
-
-    @Override
-    public void onBackPressed() {
-        moveTaskToBack(false);
     }
 
     @Override
@@ -476,7 +486,7 @@ public class MainActivity extends BaseActivity implements SensorEventListener {
     private void initMap() {
         mMapView = findViewById(R.id.bdMapView);
         mMapView.setTileSource(TileSourceFactory.MAPNIK);
-        mMapView.setBuiltInZoomControls(false);
+        mMapView.getZoomController().setVisibility(org.osmdroid.views.CustomZoomButtonsController.Visibility.NEVER);
         mMapView.setMultiTouchControls(true);
 
         // Apply dark mode filter if needed
@@ -657,26 +667,27 @@ public class MainActivity extends BaseActivity implements SensorEventListener {
             builder.setView(view);
             dialog = builder.show();
 
-            EditText dialog_lng = view.findViewById(R.id.joystick_longitude);
-            EditText dialog_lat = view.findViewById(R.id.joystick_latitude);
-            view.findViewById(R.id.RadioGroupMapType).setVisibility(View.GONE);
+            final EditText dialog_lng = view.findViewById(R.id.joystick_longitude);
+            final EditText dialog_lat = view.findViewById(R.id.joystick_latitude);
 
-            Button btnGo = view.findViewById(R.id.input_position_ok);
+            final MaterialButton btnCancel = view.findViewById(R.id.input_position_cancel);
+            final MaterialButton btnGo = view.findViewById(R.id.input_position_ok);
+
             btnGo.setOnClickListener(v2 -> {
                 String dialog_lng_str = dialog_lng.getText().toString();
                 String dialog_lat_str = dialog_lat.getText().toString();
 
                 if (TextUtils.isEmpty(dialog_lng_str) || TextUtils.isEmpty(dialog_lat_str)) {
-                    GoUtils.DisplayToast(MainActivity.this,getResources().getString(R.string.app_error_input));
+                    GoUtils.DisplayToast(MainActivity.this, getResources().getString(R.string.app_error_input));
                 } else {
-                    double dialog_lng_double = Double.parseDouble(dialog_lng_str);
-                    double dialog_lat_double = Double.parseDouble(dialog_lat_str);
+                    try {
+                        double dialog_lng_double = Double.parseDouble(dialog_lng_str);
+                        double dialog_lat_double = Double.parseDouble(dialog_lat_str);
 
-                    if (dialog_lng_double > 180.0 || dialog_lng_double < -180.0) {
-                        GoUtils.DisplayToast(MainActivity.this,  getResources().getString(R.string.app_error_longitude));
-                    } else {
-                        if (dialog_lat_double > 90.0 || dialog_lat_double < -90.0) {
-                            GoUtils.DisplayToast(MainActivity.this,  getResources().getString(R.string.app_error_latitude));
+                        if (dialog_lng_double > 180.0 || dialog_lng_double < -180.0) {
+                            GoUtils.DisplayToast(MainActivity.this, getResources().getString(R.string.app_error_longitude));
+                        } else if (dialog_lat_double > 90.0 || dialog_lat_double < -90.0) {
+                            GoUtils.DisplayToast(MainActivity.this, getResources().getString(R.string.app_error_latitude));
                         } else {
                             mMarkLatLngMap = new GeoPoint(dialog_lat_double, dialog_lng_double);
                             mMarkName = "手动输入的坐标";
@@ -686,11 +697,12 @@ public class MainActivity extends BaseActivity implements SensorEventListener {
 
                             dialog.dismiss();
                         }
+                    } catch (NumberFormatException e) {
+                        GoUtils.DisplayToast(MainActivity.this, getResources().getString(R.string.app_error_input));
                     }
                 }
             });
 
-            Button btnCancel = view.findViewById(R.id.input_position_cancel);
             btnCancel.setOnClickListener(v1 -> dialog.dismiss());
         });
     }

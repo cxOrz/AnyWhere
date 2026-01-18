@@ -88,17 +88,16 @@ public class JoyStick extends View {
     private TextView noRecordText;
     private ListView mRecordListView;
     /* 地图悬浮窗相关 */
-    private FrameLayout mMapLayout;
-    private MapView mMapView;
-    private IMapController mMapController;
-    private MyLocationNewOverlay mLocationOverlay;
-    private Marker mCurrentMarker;
+        private FrameLayout mMapLayout;
+        private MapView mMapView;
+        private IMapController mMapController;
+        private MyLocationNewOverlay mLocationOverlay;
+        private Marker mCurrentMarker;
+        
+        private GeoPoint mCurMapLngLat;
+        private GeoPoint mMarkMapLngLat;
     
-    // private BaiduMap mBaiduMap;
-    private GeoPoint mCurMapLngLat;
-    private GeoPoint mMarkMapLngLat;
-    // private SuggestionSearch mSuggestionSearch;
-    private ListView mSearchList;
+        private ListView mSearchList;
     private LinearLayout mSearchLayout;
 
     public JoyStick(Context context) {
@@ -233,9 +232,6 @@ public class JoyStick extends View {
         if (mHistoryLayout.getParent() != null) {
             mWindowManager.removeViewImmediate(mHistoryLayout);
         }
-
-        // mBaiduMap.setMyLocationEnabled(false);
-        // mMapView.onDestroy(); // osmdroid doesn't strictly require explicit onDestroy unless for cache
     }
 
     public void setListener(JoyStickClickListener mListener) {

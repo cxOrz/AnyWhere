@@ -111,8 +111,6 @@
     <string name="label_latitude">纬度</string>
     <string name="input_position_ok">传送</string>
     <string name="input_position_cancel">取消</string>
-    <string name="input_position_baidu">WGS84 坐标系</string>
-    <string name="input_position_gps">GPS 坐标系</string>
     <string name="input_button">输入位置</string>
     <string name="cur_position">返回当前位置</string>
     <string name="zoom_in">放大</string>

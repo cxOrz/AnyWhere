@@ -5,7 +5,6 @@ plugins {
 android {
     ndkVersion = '26.2.11394342'
     compileSdk = 34
-    buildToolsVersion = '34.0.0'
     namespace = 'com.cxorz.anywhere'
 
     signingConfigs {
