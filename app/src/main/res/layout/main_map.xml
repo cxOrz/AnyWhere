@@ -4,81 +4,78 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    app:layout_behavior="@string/appbar_scrolling_view_behavior"
-    tools:context=".MainActivity"
-    tools:showIn="@layout/main_content">
+    tools:context=".MainActivity">
 
-    <RelativeLayout
-        android:layout_width="match_parent"
-        android:layout_height="match_parent">
+    <org.osmdroid.views.MapView
+        android:id="@+id/bdMapView"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
 
-        <org.osmdroid.views.MapView
-            android:id="@+id/bdMapView"
-            android:layout_width="fill_parent"
-            android:layout_height="fill_parent"
-            android:clickable="true"
-            android:focusable="true" />
+    <!-- Map Controls Stack -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_marginTop="24dp"
+        android:layout_marginEnd="16dp"
+        android:clipChildren="false"
+        android:clipToPadding="false"
+        android:padding="8dp"
+        android:background="@null"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
 
-        <ImageButton
-            android:id="@+id/cur_position"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:layout_alignParentEnd="true"
-            android:layout_marginTop="350dp"
-            android:layout_marginEnd="10dp"
-            android:background="?android:attr/selectableItemBackgroundBorderless"
-            android:contentDescription="@string/cur_position"
-            android:theme="@style/RippleWhite"
-            app:srcCompat="@drawable/ic_home_position"
-            app:tint="@color/colorAccent" />
-
-        <ImageButton
-            android:id="@+id/zoom_in"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:layout_alignParentEnd="true"
-            android:layout_marginTop="383dp"
-            android:layout_marginEnd="10dp"
-            android:background="?android:attr/selectableItemBackgroundBorderless"
-            android:contentDescription="@string/zoom_in"
-            android:theme="@style/RippleWhite"
-            app:srcCompat="@drawable/ic_zoom_in"
-            app:tint="@color/colorAccent" />
-
-        <ImageButton
-            android:id="@+id/zoom_out"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:layout_alignParentEnd="true"
-            android:layout_marginTop="416dp"
-            android:layout_marginEnd="10dp"
-            android:background="?android:attr/selectableItemBackgroundBorderless"
-            android:contentDescription="@string/zoom_out"
-            android:theme="@style/RippleWhite"
-            app:srcCompat="@drawable/ic_zoom_out"
-            app:tint="@color/colorAccent" />
-
-        <ImageButton
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
             android:id="@+id/input_pos"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:layout_alignParentEnd="true"
-            android:layout_marginTop="240dp"
-            android:layout_marginEnd="10dp"
-            android:background="?android:attr/selectableItemBackgroundBorderless"
-            android:contentDescription="@string/input_button"
-            android:theme="@style/RippleWhite"
-            app:srcCompat="@drawable/ic_input"
-            app:tint="@color/colorAccent" />
-
-
-        <TextView
-            android:layout_width="match_parent"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_alignParentBottom="true"
-            android:gravity="center_horizontal|center_vertical"
-            android:textSize="10sp"
-            android:text="@string/app_statement"
-            tools:ignore="SmallSp" />
-    </RelativeLayout>
+            app:fabSize="mini"
+            app:backgroundTint="?attr/colorSurface"
+            app:elevation="6dp"
+            app:tint="?attr/colorOnSurface"
+            app:srcCompat="@drawable/ic_input"
+            android:contentDescription="@string/input_button"
+            android:layout_marginBottom="24dp" />
+
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/cur_position"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:fabSize="mini"
+            app:backgroundTint="?attr/colorSurface"
+            app:elevation="6dp"
+            app:tint="?attr/colorOnSurface"
+            app:srcCompat="@drawable/ic_home_position"
+            android:contentDescription="@string/cur_position"
+            android:layout_marginBottom="24dp" />
+
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/zoom_in"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:fabSize="mini"
+            app:backgroundTint="?attr/colorSurface"
+            app:elevation="6dp"
+            app:tint="?attr/colorOnSurface"
+            app:srcCompat="@drawable/ic_zoom_in"
+            android:contentDescription="@string/zoom_in"
+            android:layout_marginBottom="24dp" />
+
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/zoom_out"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:fabSize="mini"
+            app:backgroundTint="?attr/colorSurface"
+            app:elevation="6dp"
+            app:tint="?attr/colorOnSurface"
+            app:srcCompat="@drawable/ic_zoom_out"
+            android:contentDescription="@string/zoom_out" />
+
+    </LinearLayout>
+
 </androidx.constraintlayout.widget.ConstraintLayout>

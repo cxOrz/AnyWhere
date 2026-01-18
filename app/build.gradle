@@ -4,8 +4,8 @@ plugins {
 
 android {
     ndkVersion = '26.2.11394342'
-    compileSdk = 32
-    buildToolsVersion = '36.0.0'
+    compileSdk = 34
+    buildToolsVersion = '34.0.0'
     namespace = 'com.cxorz.anywhere'
 
     signingConfigs {
@@ -27,7 +27,7 @@ android {
         applicationId "com.cxorz.anywhere"
         minSdkVersion 24
         //noinspection ExpiredTargetSdkVersion
-        targetSdkVersion 32
+        targetSdkVersion 34
         versionCode 1123
         versionName '1.12.3' // https://semver.org/lang/zh-CN/
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
@@ -40,8 +40,8 @@ android {
     }
 
     lint {
-        abortOnError false
-        checkReleaseBuilds false
+        abortOnError = false
+        checkReleaseBuilds = false
     }
 
     buildTypes {
@@ -117,11 +117,11 @@ android {
 dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
     // AppCompat 1.5.1 开始显式依赖于 Lifecycle 2.5.1 和 SavedState 1.2.0
-    implementation 'androidx.lifecycle:lifecycle-viewmodel-ktx:2.5.1'
-    implementation 'androidx.appcompat:appcompat:1.5.1'
+    implementation 'androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.2'
+    implementation 'androidx.appcompat:appcompat:1.7.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     implementation 'androidx.preference:preference:1.2.1'
-    implementation 'com.google.android.material:material:1.7.0'
+    implementation 'com.google.android.material:material:1.12.0'
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
     implementation 'com.elvishew:xlog:1.11.1'
     implementation 'io.noties.markwon:core:4.6.2'

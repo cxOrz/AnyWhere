@@ -76,7 +76,7 @@ public class JoyStick extends View {
     private GoUtils.TimeCount mTimer;
     private boolean isMove;
     private double mSpeed = 1.2;        /* 默认的速度，单位 m/s */
-    private double mAltitude = 55.0;
+    private double mAltitude = 5.0;
     private double mAngle = 0;
     private double mR = 0;
     private double disLng = 0;
@@ -583,12 +583,24 @@ public class JoyStick extends View {
         }).start();
     }
 
+    private android.graphics.Bitmap getBitmapFromDrawable(int resId) {
+        android.graphics.drawable.Drawable drawable = androidx.core.content.ContextCompat.getDrawable(mContext, resId);
+        if (drawable == null) return null;
+
+        android.graphics.Bitmap bitmap = android.graphics.Bitmap.createBitmap(drawable.getIntrinsicWidth(),
+                drawable.getIntrinsicHeight(), android.graphics.Bitmap.Config.ARGB_8888);
+        android.graphics.Canvas canvas = new android.graphics.Canvas(bitmap);
+        drawable.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
+        drawable.draw(canvas);
+        return bitmap;
+    }
+
     private void initMap() {
         mMapView = mMapLayout.findViewById(R.id.map_joystick);
         mMapView.setTileSource(TileSourceFactory.MAPNIK);
         mMapView.setMultiTouchControls(true);
-        mMapView.getController().setZoom(18.0);
         mMapController = mMapView.getController();
+        mMapController.setZoom(15.0);
 
         MapEventsReceiver mReceive = new MapEventsReceiver() {
             @Override
@@ -606,6 +618,15 @@ public class JoyStick extends View {
         mMapView.getOverlays().add(new MapEventsOverlay(mReceive));
         
         mLocationOverlay = new MyLocationNewOverlay(new GpsMyLocationProvider(mContext), mMapView);
+        
+        android.graphics.Bitmap myLocBitmap = getBitmapFromDrawable(R.drawable.ic_mylocation_dot);
+        if (myLocBitmap != null) {
+            mLocationOverlay.setPersonIcon(myLocBitmap);
+            mLocationOverlay.setDirectionIcon(myLocBitmap);
+            mLocationOverlay.setPersonAnchor(0.5f, 0.5f);
+            mLocationOverlay.setDirectionAnchor(0.5f, 0.5f);
+        }
+
         mLocationOverlay.enableMyLocation();
         mMapView.getOverlays().add(mLocationOverlay);
     }
@@ -632,6 +653,7 @@ public class JoyStick extends View {
         mCurrentMarker = new Marker(mMapView);
         mCurrentMarker.setPosition(latLng);
         mCurrentMarker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM);
+        mCurrentMarker.setIcon(androidx.core.content.ContextCompat.getDrawable(mContext, R.drawable.ic_marker_pin));
         mMapView.getOverlays().add(mCurrentMarker);
         mMapView.invalidate();
         

@@ -26,6 +26,7 @@ import android.os.SystemClock;
 
 import androidx.annotation.NonNull;
 import androidx.core.app.NotificationCompat;
+import androidx.core.content.ContextCompat;
 
 import com.elvishew.xlog.XLog;
 import com.cxorz.anywhere.MainActivity;
@@ -36,7 +37,7 @@ public class ServiceGo extends Service {
     // 定位相关变量
     public static final double DEFAULT_LAT = 36.667662;
     public static final double DEFAULT_LNG = 117.027707;
-    public static final double DEFAULT_ALT = 55.0D;
+    public static final double DEFAULT_ALT = 5.0D;
     public static final float DEFAULT_BEA = 0.0F;
     private double mCurLat = DEFAULT_LAT;
     private double mCurLng = DEFAULT_LNG;
@@ -118,7 +119,7 @@ public class ServiceGo extends Service {
         IntentFilter filter = new IntentFilter();
         filter.addAction(SERVICE_GO_NOTE_ACTION_JOYSTICK_SHOW);
         filter.addAction(SERVICE_GO_NOTE_ACTION_JOYSTICK_HIDE);
-        registerReceiver(mActReceiver, filter);
+        ContextCompat.registerReceiver(this, mActReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED);
 
         NotificationChannel mChannel = new NotificationChannel(SERVICE_GO_NOTE_CHANNEL_ID, SERVICE_GO_NOTE_CHANNEL_NAME, NotificationManager.IMPORTANCE_DEFAULT);
         NotificationManager notificationManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);

@@ -62,10 +62,6 @@ public class WelcomeActivity extends AppCompatActivity {
             ReqPermissions.add(Manifest.permission.READ_EXTERNAL_STORAGE);
         }
 
-        if (checkSelfPermission(Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED) {
-            ReqPermissions.add(Manifest.permission.READ_PHONE_STATE);
-        }
-
         if (ReqPermissions.isEmpty()) {
             isPermission = true;
             proceedToMain();

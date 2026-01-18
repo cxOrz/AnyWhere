@@ -5,7 +5,7 @@
     <string name="app_author">Cxorz</string>
     <string name="app_email">zcsexp@gmail.com</string>
     <string name="app_statement">仅供学习使用，否则后果自负！</string>
-    <string name="app_service_tips">影梭服务正在运行中</string>
+    <string name="app_service_tips">AnyWhere 服务正在运行中</string>
     <string name="app_agreement">用户协议</string>
     <string name="app_agreement_content">"1. 本软件专为学习 Android 开发使用，不会收集任何用户数据。"
     "严禁利用本软件侵犯他人隐私权或者用于游戏牟利，如软件使用者不能遵守此规定， 请立即删除。"
@@ -59,7 +59,7 @@
     <string name="setting_bike">驾驶速度(米/秒)</string>
     <string name="setting_bike_default">10.0</string>
     <string name="setting_altitude">海拔高度(米)</string>
-    <string name="setting_altitude_default">55.0</string>
+    <string name="setting_altitude_default">5.0</string>
 
     <!-- 位置偏移相关参数 -->
     <string name="setting_group_location_offset">位置偏移</string>
@@ -103,7 +103,8 @@
     <string name="nav_drawer_close">关闭导航菜单</string>
     <string name="nav_menu_history">历史记录</string>
     <string name="nav_menu_settings">设置</string>
-    <string name="nav_app_tips">仅供学习使用，否则后果自负!</string>
+    <string name="nav_menu_theme">深色模式</string>
+    <string name="menu_location_input">经纬度输入</string>
 
     <!-- 主界面 -->
     <string name="label_longitude">经度</string>

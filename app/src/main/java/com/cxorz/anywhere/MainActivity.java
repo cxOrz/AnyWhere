@@ -46,6 +46,8 @@ import com.elvishew.xlog.XLog;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.navigation.NavigationView;
 import com.google.android.material.snackbar.Snackbar;
+
+import org.osmdroid.views.overlay.TilesOverlay;
 import com.cxorz.anywhere.database.DataBaseHistoryLocation;
 import com.cxorz.anywhere.database.DataBaseHistorySearch;
 import com.cxorz.anywhere.service.ServiceGo;
@@ -108,6 +110,7 @@ public class MainActivity extends BaseActivity implements SensorEventListener {
     private double mCurrentLon = 0.0;
     private float mCurrentDirection = 0.0f;
     private boolean isMockServStart = false;
+    private static boolean isWifiWarningShown = false;
     private ServiceGo.ServiceGoBinder mServiceBinder;
     private ServiceConnection mConnection;
     private FloatingActionButton mButtonStart;
@@ -122,9 +125,23 @@ public class MainActivity extends BaseActivity implements SensorEventListener {
     private LinearLayout mHistoryLayout;
     private MenuItem searchItem;
 
+    private double mCurrentZoom = 16.0;
+
+    @Override
+    protected void onSaveInstanceState(@NonNull Bundle outState) {
+        super.onSaveInstanceState(outState);
+        if (mMapView != null) {
+            outState.putDouble("MAP_ZOOM", mMapView.getZoomLevelDouble());
+        }
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        
+        if (savedInstanceState != null) {
+            mCurrentZoom = savedInstanceState.getDouble("MAP_ZOOM", 16.0);
+        }
         
         // OSMDroid configuration
         Configuration.getInstance().load(getApplicationContext(), PreferenceManager.getDefaultSharedPreferences(getApplicationContext()));
@@ -148,9 +165,26 @@ public class MainActivity extends BaseActivity implements SensorEventListener {
 
         initNavigationView();
 
+        mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
+        mSensorAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+        mSensorMagnetic = mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
+
         initMap();
 
-        initMapLocation();
+        initStoreHistory();
+
+        boolean hasHistory = false;
+        if (savedInstanceState == null) {
+            hasHistory = moveToLastHistoryLocation();
+        } else {
+            // Restore map state on recreation (Theme Switch)
+            if (mMarkLatLngMap != null && mMapController != null) {
+                mMapController.setCenter(mMarkLatLngMap);
+                markMap();
+            }
+        }
+
+        initMapLocation(hasHistory || savedInstanceState != null);
 
         initMapButton();
 
@@ -167,8 +201,6 @@ public class MainActivity extends BaseActivity implements SensorEventListener {
 
             }
         };
-
-        initStoreHistory();
 
         initSearchView();
         
@@ -209,7 +241,9 @@ public class MainActivity extends BaseActivity implements SensorEventListener {
     protected void onPause() {
         XLog.i("MainActivity: onPause");
         if (mMapView != null) mMapView.onPause();
-        mSensorManager.unregisterListener(this);
+        if (mSensorManager != null) {
+            mSensorManager.unregisterListener(this);
+        }
         super.onPause();
     }
 
@@ -217,15 +251,23 @@ public class MainActivity extends BaseActivity implements SensorEventListener {
     protected void onResume() {
         XLog.i("MainActivity: onResume");
         if (mMapView != null) mMapView.onResume();
-        mSensorManager.registerListener(this, mSensorAccelerometer, SensorManager.SENSOR_DELAY_UI);
-        mSensorManager.registerListener(this, mSensorMagnetic, SensorManager.SENSOR_DELAY_UI);
+        if (mSensorManager != null) {
+            if (mSensorAccelerometer != null) {
+                mSensorManager.registerListener(this, mSensorAccelerometer, SensorManager.SENSOR_DELAY_UI);
+            }
+            if (mSensorMagnetic != null) {
+                mSensorManager.registerListener(this, mSensorMagnetic, SensorManager.SENSOR_DELAY_UI);
+            }
+        }
         super.onResume();
     }
 
     @Override
     protected void onStop() {
         XLog.i("MainActivity: onStop");
-        mSensorManager.unregisterListener(this);
+        if (mSensorManager != null) {
+            mSensorManager.unregisterListener(this);
+        }
         super.onStop();
     }
 
@@ -408,50 +450,69 @@ public class MainActivity extends BaseActivity implements SensorEventListener {
 
             return true;
         });
+
+        // Theme Toggle Button in Footer
+        com.google.android.material.button.MaterialButton btnToggle = findViewById(R.id.btn_theme_toggle);
+        if (btnToggle != null) {
+            int currentNightMode = getResources().getConfiguration().uiMode & android.content.res.Configuration.UI_MODE_NIGHT_MASK;
+            boolean isDark = currentNightMode == android.content.res.Configuration.UI_MODE_NIGHT_YES;
+
+            if (isDark) {
+                btnToggle.setIconResource(R.drawable.ic_sunny);
+            } else {
+                btnToggle.setIconResource(R.drawable.ic_night);
+            }
+
+            btnToggle.setOnClickListener(v -> {
+                if (isDark) {
+                    androidx.appcompat.app.AppCompatDelegate.setDefaultNightMode(androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_NO);
+                } else {
+                    androidx.appcompat.app.AppCompatDelegate.setDefaultNightMode(androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_YES);
+                }
+            });
+        }
     }
 
     private void initMap() {
         mMapView = findViewById(R.id.bdMapView);
         mMapView.setTileSource(TileSourceFactory.MAPNIK);
+        mMapView.setBuiltInZoomControls(false);
         mMapView.setMultiTouchControls(true);
-        mMapView.getController().setZoom(18.0);
-        mMapController = mMapView.getController();
 
-        mMapView.setScrollableAreaLimitDouble(new org.osmdroid.util.BoundingBox(55, 140, 0, 70));
-        
-        GeoPoint startPoint = new GeoPoint(39.9042, 116.4074);
-        mMapController.setCenter(startPoint);
-        mMapController.setZoom(12.0);
-        
-        MapEventsReceiver mReceive = new MapEventsReceiver() {
+        // Apply dark mode filter if needed
+        int nightModeFlags = getResources().getConfiguration().uiMode & android.content.res.Configuration.UI_MODE_NIGHT_MASK;
+        if (nightModeFlags == android.content.res.Configuration.UI_MODE_NIGHT_YES) {
+            // High-quality Night Mode Matrix: Inverts colors and slightly adjusts for eye comfort
+            float[] nightMatrix = {
+                -1.0f, 0, 0, 0, 255,
+                0, -1.0f, 0, 0, 255,
+                0, 0, -1.0f, 0, 255,
+                0, 0, 0, 1.0f, 0
+            };
+            mMapView.getOverlayManager().getTilesOverlay().setColorFilter(new android.graphics.ColorMatrixColorFilter(nightMatrix));
+        }
+
+        // Restore map click listener
+        MapEventsOverlay mapEventsOverlay = new MapEventsOverlay(new MapEventsReceiver() {
             @Override
             public boolean singleTapConfirmedHelper(GeoPoint p) {
                 mMarkLatLngMap = p;
+                mMarkName = null;
                 markMap();
                 return true;
             }
 
             @Override
             public boolean longPressHelper(GeoPoint p) {
-                mMarkLatLngMap = p;
-                markMap();
-                performReverseGeocoding(p);
-                return true;
+                return false;
             }
-        };
-        mMapView.getOverlays().add(new MapEventsOverlay(mReceive));
+        });
+        mMapView.getOverlays().add(0, mapEventsOverlay);
 
-        mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
-        if (mSensorManager != null) {
-            mSensorAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
-            if (mSensorAccelerometer != null) {
-                mSensorManager.registerListener(this, mSensorAccelerometer, SensorManager.SENSOR_DELAY_UI);
-            }
-            mSensorMagnetic = mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
-            if (mSensorMagnetic != null) {
-                mSensorManager.registerListener(this, mSensorMagnetic, SensorManager.SENSOR_DELAY_UI);
-            }
-        }
+        mMapController = mMapView.getController();
+        mMapController.setZoom(mCurrentZoom);
+        GeoPoint startPoint = new GeoPoint(39.9042, 116.4074);
+        mMapController.setCenter(startPoint);
     }
     
     private void performReverseGeocoding(GeoPoint p) {
@@ -503,21 +564,78 @@ public class MainActivity extends BaseActivity implements SensorEventListener {
         }).start();
     }
 
-    private void initMapLocation() {
+    private android.graphics.Bitmap getBitmapFromDrawable(int resId) {
+        android.graphics.drawable.Drawable drawable = androidx.core.content.ContextCompat.getDrawable(this, resId);
+        if (drawable == null) return null;
+
+        android.graphics.Bitmap bitmap = android.graphics.Bitmap.createBitmap(drawable.getIntrinsicWidth(),
+                drawable.getIntrinsicHeight(), android.graphics.Bitmap.Config.ARGB_8888);
+        android.graphics.Canvas canvas = new android.graphics.Canvas(bitmap);
+        drawable.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
+        drawable.draw(canvas);
+        return bitmap;
+    }
+
+    private void initMapLocation(boolean hasHistory) {
         mLocationOverlay = new MyLocationNewOverlay(new GpsMyLocationProvider(this), mMapView);
+
+        android.graphics.Bitmap myLocBitmap = getBitmapFromDrawable(R.drawable.ic_mylocation_dot);
+        if (myLocBitmap != null) {
+            mLocationOverlay.setPersonIcon(myLocBitmap);
+            mLocationOverlay.setDirectionIcon(myLocBitmap);
+            mLocationOverlay.setPersonAnchor(0.5f, 0.5f);
+            mLocationOverlay.setDirectionAnchor(0.5f, 0.5f);
+        }
+
         mLocationOverlay.enableMyLocation();
         mMapView.getOverlays().add(mLocationOverlay);
         
-        mLocationOverlay.runOnFirstFix(() -> runOnUiThread(() -> {
-            GeoPoint myLoc = mLocationOverlay.getMyLocation();
-            if (myLoc != null) {
-                mMapController.setCenter(myLoc);
-                mMapController.animateTo(myLoc);
-                mCurrentLat = myLoc.getLatitude();
-                mCurrentLon = myLoc.getLongitude();
-                mMarkLatLngMap = myLoc;
+        if (!hasHistory) {
+            mLocationOverlay.runOnFirstFix(() -> runOnUiThread(() -> {
+                GeoPoint myLoc = mLocationOverlay.getMyLocation();
+                if (myLoc != null) {
+                    mMapController.setCenter(myLoc);
+                    mMapController.animateTo(myLoc);
+                    mCurrentLat = myLoc.getLatitude();
+                    mCurrentLon = myLoc.getLongitude();
+                    mMarkLatLngMap = myLoc;
+                    GoUtils.DisplayToast(MainActivity.this, "已成功获取当前位置");
+                }
+            }));
+        }
+    }
+
+    private boolean moveToLastHistoryLocation() {
+        if (mLocationHistoryDB == null) return false;
+        boolean found = false;
+        try {
+            Cursor cursor = mLocationHistoryDB.query(DataBaseHistoryLocation.TABLE_NAME, null,
+                    DataBaseHistoryLocation.DB_COLUMN_ID + " > ?", new String[] {"0"},
+                    null, null, DataBaseHistoryLocation.DB_COLUMN_TIMESTAMP + " DESC", "1");
+
+            if (cursor.moveToFirst()) {
+                String lngStr = cursor.getString(cursor.getColumnIndexOrThrow(DataBaseHistoryLocation.DB_COLUMN_LONGITUDE_WGS84));
+                String latStr = cursor.getString(cursor.getColumnIndexOrThrow(DataBaseHistoryLocation.DB_COLUMN_LATITUDE_WGS84));
+
+                double lng = Double.parseDouble(lngStr);
+                double lat = Double.parseDouble(latStr);
+
+                mMarkLatLngMap = new GeoPoint(lat, lng);
+                mMarkName = cursor.getString(cursor.getColumnIndexOrThrow(DataBaseHistoryLocation.DB_COLUMN_LOCATION));
+
+                if (mMapController != null) {
+                    mMapController.setCenter(mMarkLatLngMap);
+                    mMapController.animateTo(mMarkLatLngMap);
+                    markMap();
+                    GoUtils.DisplayToast(this, "已恢复至上次位置");
+                    found = true;
+                }
             }
-        }));
+            cursor.close();
+        } catch (Exception e) {
+            XLog.e("ERROR: moveToLastHistoryLocation", e);
+        }
+        return found;
     }
 
     private void initMapButton() {
@@ -585,6 +703,7 @@ public class MainActivity extends BaseActivity implements SensorEventListener {
             mCurrentMarker = new Marker(mMapView);
             mCurrentMarker.setPosition(mMarkLatLngMap);
             mCurrentMarker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM);
+            mCurrentMarker.setIcon(androidx.core.content.ContextCompat.getDrawable(this, R.drawable.ic_marker_pin));
             mCurrentMarker.setTitle("Selected Location");
             mMapView.getOverlays().add(mCurrentMarker);
             mMapView.invalidate();
@@ -595,6 +714,12 @@ public class MainActivity extends BaseActivity implements SensorEventListener {
         if (mLocationOverlay.getMyLocation() != null) {
              mMapController.animateTo(mLocationOverlay.getMyLocation());
              mMarkLatLngMap = mLocationOverlay.getMyLocation();
+        } else {
+            if (!GoUtils.isGpsOpened(this)) {
+                GoUtils.DisplayToast(this, getResources().getString(R.string.app_error_gps));
+            } else {
+                GoUtils.DisplayToast(this, "定位失败：请确保处于室外开阔地带并稍后重试");
+            }
         }
     }
 
@@ -667,10 +792,10 @@ public class MainActivity extends BaseActivity implements SensorEventListener {
                 mMarkLatLngMap = null;
                 mMapView.invalidate();
 
-                if (GoUtils.isWifiEnabled(MainActivity.this)) {
-                    GoUtils.showWifiWarningToast(MainActivity.this);
-                }
-            }
+                                if (GoUtils.isWifiEnabled(MainActivity.this) && !isWifiWarningShown) {
+                                    GoUtils.showWifiWarningToast(MainActivity.this);
+                                    isWifiWarningShown = true;
+                                }            }
         } else {
             if (!GoUtils.isAllowMockLocation(this)) {
                 GoUtils.showEnableMockLocationDialog(this);
@@ -691,10 +816,10 @@ public class MainActivity extends BaseActivity implements SensorEventListener {
                     mMarkLatLngMap = null;
                     mMapView.invalidate();
 
-                    if (GoUtils.isWifiEnabled(MainActivity.this)) {
-                        GoUtils.showWifiWarningToast(MainActivity.this);
-                    }
-                }
+                                    if (GoUtils.isWifiEnabled(MainActivity.this) && !isWifiWarningShown) {
+                                        GoUtils.showWifiWarningToast(MainActivity.this);
+                                        isWifiWarningShown = true;
+                                    }                }
             }
         }
     }
