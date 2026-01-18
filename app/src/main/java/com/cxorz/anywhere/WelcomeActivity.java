@@ -35,15 +35,20 @@ public class WelcomeActivity extends AppCompatActivity {
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         if (requestCode == SDK_PERMISSION_REQUEST) {
-            for (int i = 0; i < ReqPermissions.size(); i++) {
-                if (grantResults[i] != PackageManager.PERMISSION_GRANTED) {
-                    GoUtils.DisplayToast(this, getResources().getString(R.string.app_error_permission));
-                    return;
+            boolean allGranted = true;
+            for (int result : grantResults) {
+                if (result != PackageManager.PERMISSION_GRANTED) {
+                    allGranted = false;
+                    break;
                 }
             }
-            isPermission = true;
-            // Permissions granted, proceed
-            proceedToMain();
+            
+            if (allGranted && grantResults.length > 0) {
+                isPermission = true;
+                proceedToMain();
+            } else {
+                GoUtils.DisplayToast(this, getResources().getString(R.string.app_error_permission));
+            }
         }
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
     }
@@ -56,10 +61,6 @@ public class WelcomeActivity extends AppCompatActivity {
 
         if (checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             ReqPermissions.add(Manifest.permission.ACCESS_COARSE_LOCATION);
-        }
-
-        if (checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-            ReqPermissions.add(Manifest.permission.READ_EXTERNAL_STORAGE);
         }
 
         if (ReqPermissions.isEmpty()) {
