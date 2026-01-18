@@ -10,13 +10,13 @@ android {
 
     signingConfigs {
         debug {
-            storeFile file('..\\keystore\\REDACTED.jks')
+            storeFile rootProject.file('keystore/REDACTED.jks')
     storePassword 'REDACTED_PASSWORD'
             keyAlias 'REDACTED_ALIAS'
     keyPassword 'REDACTED_PASSWORD'
         }
         release {
-            storeFile file('..\\keystore\\REDACTED.jks')
+            storeFile rootProject.file('keystore/REDACTED.jks')
     storePassword 'REDACTED_PASSWORD'
             keyAlias 'REDACTED_ALIAS'
     keyPassword 'REDACTED_PASSWORD'
