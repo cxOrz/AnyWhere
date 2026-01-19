@@ -24,6 +24,11 @@ import android.os.Message;
 import android.os.Process;
 import android.os.SystemClock;
 
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
+
 import androidx.annotation.NonNull;
 import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
@@ -33,8 +38,10 @@ import com.cxorz.anywhere.MainActivity;
 import com.cxorz.anywhere.R;
 import com.cxorz.anywhere.joystick.JoyStick;
 
+import java.util.Random;
+
 @SuppressWarnings("deprecation")
-public class ServiceGo extends Service {
+public class ServiceGo extends Service implements SensorEventListener {
     // 定位相关变量
     public static final double DEFAULT_LAT = 36.667662;
     public static final double DEFAULT_LNG = 117.027707;
@@ -63,6 +70,19 @@ public class ServiceGo extends Service {
 
     private final ServiceGoBinder mBinder = new ServiceGoBinder();
 
+    // 传感器相关 (真实朝向)
+    private SensorManager mSensorManager;
+    private Sensor mSensorAcc;
+    private Sensor mSensorMag;
+    private float[] mAccValues = new float[3];
+    private float[] mMagValues = new float[3];
+    private final float[] mR = new float[9];
+    private final float[] mDirectionValues = new float[3];
+    private float mRealBearing = 0.0f;
+
+    // 随机噪点生成器
+    private final Random mRandom = new Random();
+
     @Override
     public IBinder onBind(Intent intent) {
         return mBinder;
@@ -73,6 +93,9 @@ public class ServiceGo extends Service {
         super.onCreate();
 
         mLocManager = (LocationManager) this.getSystemService(Context.LOCATION_SERVICE);
+        mSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
+
+        initSensors();
 
         removeTestProviderNetwork();
         addTestProviderNetwork();
@@ -85,6 +108,19 @@ public class ServiceGo extends Service {
         initNotification();
 
         initJoyStick();
+    }
+
+    private void initSensors() {
+        if (mSensorManager != null) {
+            mSensorAcc = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+            mSensorMag = mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
+            if (mSensorAcc != null) {
+                mSensorManager.registerListener(this, mSensorAcc, SensorManager.SENSOR_DELAY_UI);
+            }
+            if (mSensorMag != null) {
+                mSensorManager.registerListener(this, mSensorMag, SensorManager.SENSOR_DELAY_UI);
+            }
+        }
     }
 
     @Override
@@ -104,6 +140,10 @@ public class ServiceGo extends Service {
         mLocHandler.removeMessages(HANDLER_MSG_ID);
         mLocHandlerThread.quit();
 
+        if (mSensorManager != null) {
+            mSensorManager.unregisterListener(this);
+        }
+
         mJoyStick.destroy();
 
         removeTestProviderNetwork();
@@ -113,6 +153,28 @@ public class ServiceGo extends Service {
         stopForeground(STOP_FOREGROUND_REMOVE);
 
         super.onDestroy();
+    }
+
+    @Override
+    public void onSensorChanged(SensorEvent event) {
+        if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
+            mAccValues = event.values;
+        } else if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD) {
+            mMagValues = event.values;
+        }
+
+        SensorManager.getRotationMatrix(mR, null, mAccValues, mMagValues);
+        SensorManager.getOrientation(mR, mDirectionValues);
+        float azimuth = (float) Math.toDegrees(mDirectionValues[0]);
+        if (azimuth < 0) {
+            azimuth += 360;
+        }
+        mRealBearing = azimuth;
+    }
+
+    @Override
+    public void onAccuracyChanged(Sensor sensor, int accuracy) {
+        // 不需要处理
     }
 
     private void initNotification() {
@@ -162,7 +224,7 @@ public class ServiceGo extends Service {
                 // 具体见：http://wp.mlab.tw/?p=2200
                 mCurLng += disLng / (111.320 * Math.cos(Math.abs(mCurLat) * Math.PI / 180));
                 mCurLat += disLat / 110.574;
-                mCurBea = (float) angle;
+                mCurBea = (float) angle; // 摇杆移动方向，可备用，但这里主要用 mRealBearing
             }
 
             @Override
@@ -186,7 +248,8 @@ public class ServiceGo extends Service {
             @Override
             public void handleMessage(@NonNull Message msg) {
                 try {
-                    Thread.sleep(100);
+                    // 模拟真实 GPS 频率，通常为 1Hz (1000ms)
+                    Thread.sleep(1000);
 
                     if (!isStop) {
                         setLocationNetwork();
@@ -237,13 +300,20 @@ public class ServiceGo extends Service {
 
     private void setLocationGPS() {
         try {
-            // 尽可能模拟真实的 GPS 数据
+            // 添加随机噪点 (模拟GPS漂移)
+            // 0.00002 度大约对应 2.2 米左右
+            double noiseLat = (mRandom.nextDouble() - 0.5) * 0.00004; 
+            double noiseLng = (mRandom.nextDouble() - 0.5) * 0.00004;
+            double noiseAlt = (mRandom.nextDouble() - 0.5) * 1.0;
+
+            XLog.d("ServiceGo: setLocationGPS - RealBearing: " + mRealBearing);
+
             Location loc = new Location(LocationManager.GPS_PROVIDER);
             loc.setAccuracy(Criteria.ACCURACY_FINE);    // 设定此位置的估计水平精度，以米为单位。
-            loc.setAltitude(mCurAlt);                     // 设置高度，在 WGS 84 参考坐标系中的米
-            loc.setBearing(mCurBea);                       // 方向（度）
-            loc.setLatitude(mCurLat);                   // 纬度（度）
-            loc.setLongitude(mCurLng);                  // 经度（度）
+            loc.setAltitude(mCurAlt + noiseAlt);        // 设置高度
+            loc.setBearing(mRealBearing);               // 使用真实传感器方向
+            loc.setLatitude(mCurLat + noiseLat);        // 纬度 + 噪点
+            loc.setLongitude(mCurLng + noiseLng);       // 经度 + 噪点
             loc.setTime(System.currentTimeMillis());    // 本地时间
             loc.setSpeed((float) mSpeed);
             loc.setElapsedRealtimeNanos(SystemClock.elapsedRealtimeNanos());
@@ -292,13 +362,17 @@ public class ServiceGo extends Service {
 
     private void setLocationNetwork() {
         try {
-            // 尽可能模拟真实的 NETWORK 数据
+            // 添加随机噪点
+            double noiseLat = (mRandom.nextDouble() - 0.5) * 0.00004;
+            double noiseLng = (mRandom.nextDouble() - 0.5) * 0.00004;
+            double noiseAlt = (mRandom.nextDouble() - 0.5) * 1.0;
+
             Location loc = new Location(LocationManager.NETWORK_PROVIDER);
             loc.setAccuracy(Criteria.ACCURACY_COARSE);  // 设定此位置的估计水平精度，以米为单位。
-            loc.setAltitude(mCurAlt);                     // 设置高度，在 WGS 84 参考坐标系中的米
-            loc.setBearing(mCurBea);                       // 方向（度）
-            loc.setLatitude(mCurLat);                   // 纬度（度）
-            loc.setLongitude(mCurLng);                  // 经度（度）
+            loc.setAltitude(mCurAlt + noiseAlt);
+            loc.setBearing(mRealBearing);               // 使用真实传感器方向
+            loc.setLatitude(mCurLat + noiseLat);
+            loc.setLongitude(mCurLng + noiseLng);
             loc.setTime(System.currentTimeMillis());    // 本地时间
             loc.setSpeed((float) mSpeed);
             loc.setElapsedRealtimeNanos(SystemClock.elapsedRealtimeNanos());

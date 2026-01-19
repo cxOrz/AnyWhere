@@ -41,6 +41,16 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
 
+        <meta-data
+            android:name="xposedmodule"
+            android:value="true" />
+        <meta-data
+            android:name="xposeddescription"
+            android:value="隐藏模拟位置检测 (Hide Mock Location Status)" />
+        <meta-data
+            android:name="xposedminversion"
+            android:value="54" />
+
         <uses-library
             android:name="org.apache.http.legacy"
             android:required="false" />
