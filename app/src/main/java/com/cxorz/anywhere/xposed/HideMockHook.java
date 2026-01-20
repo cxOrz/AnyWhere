@@ -1,21 +1,22 @@
 package com.cxorz.anywhere.xposed;
 
 import android.content.ContentResolver;
-import android.location.GpsStatus;
 import android.location.Location;
 import android.location.LocationManager;
+import android.location.LocationListener;
 import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.Settings;
 import android.telephony.TelephonyManager;
 import android.telephony.CellInfo;
-import android.telephony.CellLocation;
 import android.util.Log;
 
+import java.lang.reflect.Constructor;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 
 import de.robv.android.xposed.IXposedHookLoadPackage;
@@ -34,7 +35,7 @@ public class HideMockHook implements IXposedHookLoadPackage {
             "com.cxorz.anywhere",
             "android",
             "com.android.systemui",
-            "com.android.phone" // 电话进程通常不需要 Hook，否则可能影响信号显示
+            "com.android.phone"
     );
 
     @Override
@@ -46,11 +47,7 @@ public class HideMockHook implements IXposedHookLoadPackage {
         }
 
         try {
-            // =========================================================================
-            // 1. 基础防检测：Location 对象本身
-            // =========================================================================
-
-            // API 18+: Location.isFromMockProvider() -> false
+            // 1. 基础防检测
             XposedHelpers.findAndHookMethod(Location.class, "isFromMockProvider", new XC_MethodReplacement() {
                 @Override
                 protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
@@ -58,7 +55,6 @@ public class HideMockHook implements IXposedHookLoadPackage {
                 }
             });
 
-            // API 31+: Location.isMock() -> false
             if (Build.VERSION.SDK_INT >= 31) {
                 try {
                     XposedHelpers.findAndHookMethod(Location.class, "isMock", new XC_MethodReplacement() {
@@ -67,182 +63,222 @@ public class HideMockHook implements IXposedHookLoadPackage {
                             return false;
                         }
                     });
-                } catch (Throwable t) {
-                    // Ignore
-                }
+                } catch (Throwable t) {}
             }
 
-            // 清理 extras 中的 mockLocation 标记
             XposedHelpers.findAndHookMethod(Location.class, "getExtras", new XC_MethodHook() {
                 @Override
                 protected void afterHookedMethod(MethodHookParam param) throws Throwable {
                     Bundle extras = (Bundle) param.getResult();
-                    if (extras != null) {
-                        if (extras.containsKey("mockLocation")) {
-                            extras.remove("mockLocation");
-                        }
+                    if (extras != null && extras.containsKey("mockLocation")) {
+                        extras.remove("mockLocation");
                     }
                 }
             });
 
-            // =========================================================================
-            // 2. 屏蔽 Wi-Fi 扫描 (防止 Wi-Fi 纠偏/闪回)
-            // =========================================================================
+            // 2. 屏蔽 Wi-Fi 和 基站
             try {
-                // getScanResults -> 返回空列表
                 XposedHelpers.findAndHookMethod(WifiManager.class, "getScanResults", new XC_MethodReplacement() {
                     @Override
                     protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
-                        // 返回空列表，让 App 以为周围没有任何 Wi-Fi，从而无法进行 Wi-Fi 定位
                         return new ArrayList<>(); 
                     }
                 });
-            } catch (Throwable t) {
-                XposedBridge.log(TAG + " [WifiManager] Hook failed: " + t.getMessage());
-            }
+            } catch (Throwable t) {}
 
-            // =========================================================================
-            // 3. 屏蔽基站信息 (防止基站纠偏/闪回)
-            // =========================================================================
             try {
-                // getCellLocation -> null
                 XposedHelpers.findAndHookMethod(TelephonyManager.class, "getCellLocation", new XC_MethodReplacement() {
                     @Override
                     protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
                         return null;
                     }
                 });
-
-                // getAllCellInfo -> null 或 空列表
-                // 注意：某些 App 拿到 null 可能会崩溃，更安全的做法是返回空列表
                 XposedHelpers.findAndHookMethod(TelephonyManager.class, "getAllCellInfo", new XC_MethodReplacement() {
                     @Override
                     protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
                         return new ArrayList<CellInfo>();
                     }
                 });
-                
-                // getNeighboringCellInfo -> 空列表 (旧版 API)
-                XposedHelpers.findAndHookMethod(TelephonyManager.class, "getNeighboringCellInfo", new XC_MethodReplacement() {
-                    @Override
-                    protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
-                        return new ArrayList<>();
-                    }
-                });
-                
-            } catch (Throwable t) {
-                XposedBridge.log(TAG + " [TelephonyManager] Hook failed: " + t.getMessage());
-            }
+            } catch (Throwable t) {}
+
+            // 3. 卫星状态主动伪造 (GnssStatus Only)
+            final Handler mainHandler = new Handler(Looper.getMainLooper());
+            final List<Object> gnssCallbacks = new ArrayList<>();
+
+            // 移除旧的 LocationManager removeUpdates Hook (如果只用于 GPS Listener 清理的话)
+            // 但如果用于通用 LocationListener 清理，可以保留。这里主要关注 GpsStatus，所以保留 removeUpdates 对通用 Listener 还是有用的，
+            // 不过为了纯净，我们假设 removeUpdates 主要影响 location 监听。
+            // 这里我们不再维护 gpsListeners 列表。
 
             // =========================================================================
-            // 4. 卫星状态屏蔽 (GpsStatus / GnssStatus)
+            // GnssStatus Hook (Android N+)
             // =========================================================================
-            
-            // 方案：与其费力去伪造复杂的卫星对象，不如直接屏蔽监听。
-            // App 收不到回调通常会认为“定位中”或“暂无详细信息”，比收到“0颗卫星”更安全。
-
-            // 4.1 屏蔽旧版 GpsStatus 监听
-            // 拦截 addGpsStatusListener，直接返回 true (注册成功)，但不真正注册
-            try {
-                XposedHelpers.findAndHookMethod(LocationManager.class, "addGpsStatusListener", GpsStatus.Listener.class, new XC_MethodReplacement() {
-                    @Override
-                    protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
-                        // 欺骗 App 说监听器添加成功了，但实际上我们什么都没做
-                        return true; 
-                    }
-                });
-            } catch (Throwable t) {
-                // Ignore
-            }
-
-            // 4.2 屏蔽新版 GnssStatus 监听 (Android N+, API 24+)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                try {
-                    // GnssStatus.Callback 是一个抽象类
-                    Class<?> gnssCallbackClass = Class.forName("android.location.GnssStatus$Callback");
-                    
-                    // registerGnssStatusCallback 有两个重载，我们都拦截
-                    // 1. registerGnssStatusCallback(GnssStatus.Callback callback)
-                    // 2. registerGnssStatusCallback(GnssStatus.Callback callback, Handler handler)
-                    
-                    XC_MethodReplacement blockGnssRegistration = new XC_MethodReplacement() {
-                        @Override
-                        protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
-                            // 同样欺骗 App 说注册成功
-                            return true;
+                
+                final Class<?> gnssStatusClass = Class.forName("android.location.GnssStatus");
+                
+                // 1. Hook GnssStatus 的所有 Getter 方法
+                XposedHelpers.findAndHookMethod(gnssStatusClass, "getSatelliteCount", new XC_MethodReplacement() {
+                    @Override
+                    protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
+                        return 7; 
+                    }
+                });
+
+                XposedHelpers.findAndHookMethod(gnssStatusClass, "getSvid", int.class, new XC_MethodReplacement() {
+                    @Override
+                    protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
+                        return ((int) param.args[0]) + 1;
+                    }
+                });
+
+                XposedHelpers.findAndHookMethod(gnssStatusClass, "getConstellationType", int.class, new XC_MethodReplacement() {
+                    @Override
+                    protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
+                        return 1; // GPS
+                    }
+                });
+
+                XposedHelpers.findAndHookMethod(gnssStatusClass, "getCn0DbHz", int.class, new XC_MethodReplacement() {
+                    @Override
+                    protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
+                        return 35.0f;
+                    }
+                });
+
+                XposedHelpers.findAndHookMethod(gnssStatusClass, "getElevationDegrees", int.class, new XC_MethodReplacement() {
+                    @Override
+                    protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
+                        return 45.0f;
+                    }
+                });
+
+                XposedHelpers.findAndHookMethod(gnssStatusClass, "getAzimuthDegrees", int.class, new XC_MethodReplacement() {
+                    @Override
+                    protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
+                        return (float)((int)param.args[0] * 45);
+                    }
+                });
+
+                XposedHelpers.findAndHookMethod(gnssStatusClass, "usedInFix", int.class, new XC_MethodReplacement() {
+                    @Override
+                    protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
+                        return true;
+                    }
+                });
+                
+                try { XposedHelpers.findAndHookMethod(gnssStatusClass, "hasEphemeris", int.class, new XC_MethodReplacement() { @Override protected Object replaceHookedMethod(MethodHookParam param) { return true; } }); } catch (Throwable t) {}
+                try { XposedHelpers.findAndHookMethod(gnssStatusClass, "hasAlmanac", int.class, new XC_MethodReplacement() { @Override protected Object replaceHookedMethod(MethodHookParam param) { return true; } }); } catch (Throwable t) {}
+                try { XposedHelpers.findAndHookMethod(gnssStatusClass, "hasCarrierFrequencyHz", int.class, new XC_MethodReplacement() { @Override protected Object replaceHookedMethod(MethodHookParam param) { return true; } }); } catch (Throwable t) {}
+                try { XposedHelpers.findAndHookMethod(gnssStatusClass, "getCarrierFrequencyHz", int.class, new XC_MethodReplacement() { @Override protected Object replaceHookedMethod(MethodHookParam param) { return 1.57542e9f; } }); } catch (Throwable t) {}
+
+
+                // 2. 拦截注册
+                Class<?> gnssCallbackClass = Class.forName("android.location.GnssStatus$Callback");
+                XC_MethodReplacement registerGnssHook = new XC_MethodReplacement() {
+                    @Override
+                    protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
+                        Object callback = param.args[0];
+                        if (callback != null) {
+                            synchronized (gnssCallbacks) {
+                                if (!gnssCallbacks.contains(callback)) gnssCallbacks.add(callback);
+                            }
                         }
-                    };
+                        return true;
+                    }
+                };
+                XposedHelpers.findAndHookMethod(LocationManager.class, "registerGnssStatusCallback", gnssCallbackClass, registerGnssHook);
+                XposedHelpers.findAndHookMethod(LocationManager.class, "registerGnssStatusCallback", gnssCallbackClass, android.os.Handler.class, registerGnssHook);
 
-                    XposedHelpers.findAndHookMethod(LocationManager.class, "registerGnssStatusCallback", gnssCallbackClass, blockGnssRegistration);
-                    XposedHelpers.findAndHookMethod(LocationManager.class, "registerGnssStatusCallback", gnssCallbackClass, android.os.Handler.class, blockGnssRegistration);
-
-                } catch (Throwable t) {
-                    XposedBridge.log(TAG + " [GnssStatus] Hook failed: " + t.getMessage());
-                }
+                // 3. 模拟循环
+                Runnable simulator = new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            if (!gnssCallbacks.isEmpty()) {
+                                Object statusToSend = getBestDummyGnssStatus(); 
+                                if (statusToSend != null) {
+                                    synchronized (gnssCallbacks) {
+                                        for (Object callback : gnssCallbacks) {
+                                            XposedHelpers.callMethod(callback, "onSatelliteStatusChanged", statusToSend);
+                                        }
+                                    }
+                                } else {
+                                    Log.e(TAG, "CRITICAL: getBestDummyGnssStatus returned NULL.");
+                                }
+                            }
+                        } catch (Throwable t) { Log.e(TAG, "Sim loop error: " + t); }
+                        mainHandler.postDelayed(this, 1000);
+                    }
+                };
+                mainHandler.post(simulator);
             }
-
-            // =========================================================================
-            // 5. 隐藏 Settings 中的模拟位置设置
-            // =========================================================================
+            
+            // 4. 清理 Settings 和 Provider 列表
             XposedHelpers.findAndHookMethod(Settings.Secure.class, "getString", ContentResolver.class, String.class, new XC_MethodHook() {
                 @Override
                 protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                    String name = (String) param.args[1];
-                    if ("mock_location".equals(name)) { 
-                        param.setResult("0");
-                    }
+                    if ("mock_location".equals(param.args[1])) param.setResult("0");
                 }
             });
-            
-            try {
-                XposedHelpers.findAndHookMethod(Settings.Secure.class, "getStringForUser", ContentResolver.class, String.class, int.class, new XC_MethodHook() {
-                    @Override
-                    protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                        String name = (String) param.args[1];
-                        if ("mock_location".equals(name)) {
-                            param.setResult("0");
+
+            final List<String> standardProviders = Arrays.asList("gps", "network", "passive", "fused");
+            XC_MethodHook providerCleaner = new XC_MethodHook() {
+                @Override
+                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                    List<String> providers = (List<String>) param.getResult();
+                    if (providers != null) {
+                        for (int i = providers.size() - 1; i >= 0; i--) {
+                            if (!standardProviders.contains(providers.get(i))) providers.remove(i);
                         }
                     }
-                });
-            } catch (Throwable t) {
-                // Method might not exist
-            }
-
-            // =========================================================================
-            // 6. 清理 LocationManager 中的 Provider 列表 (防止出现重复或 test provider)
-            // =========================================================================
-             try {
-                 // 定义标准 Provider 白名单
-                 final List<String> standardProviders = Arrays.asList("gps", "network", "passive", "fused");
-
-                 XC_MethodHook providerCleaner = new XC_MethodHook() {
-                     @Override
-                     protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                         List<String> providers = (List<String>) param.getResult();
-                         if (providers == null) return;
-
-                         // 倒序遍历删除不在白名单中的 Provider
-                         for (int i = providers.size() - 1; i >= 0; i--) {
-                             String name = providers.get(i);
-                             if (!standardProviders.contains(name)) {
-                                 providers.remove(i);
-                             }
-                         }
-                     }
-                 };
-
-                 // Hook getProviders(boolean enabledOnly)
-                 XposedHelpers.findAndHookMethod(LocationManager.class, "getProviders", boolean.class, providerCleaner);
-                 
-                 // Hook getAllProviders()
-                 XposedHelpers.findAndHookMethod(LocationManager.class, "getAllProviders", providerCleaner);
-
-            } catch (Throwable t) {
-                XposedBridge.log(TAG + " [ProviderCleaner] Hook failed: " + t.getMessage());
-            }
+                }
+            };
+            XposedHelpers.findAndHookMethod(LocationManager.class, "getProviders", boolean.class, providerCleaner);
+            XposedHelpers.findAndHookMethod(LocationManager.class, "getAllProviders", providerCleaner);
 
         } catch (Throwable t) {
             XposedBridge.log(t);
         }
+    }
+
+    private Object getBestDummyGnssStatus() {
+        try {
+            Class<?> builderClass = Class.forName("android.location.GnssStatus$Builder");
+            
+            // 1. Try Builder No-Args
+            try {
+                Object builder = XposedHelpers.newInstance(builderClass); 
+                return XposedHelpers.callMethod(builder, "build");
+            } catch (Throwable t) {}
+            
+            // 2. Try Builder with int
+            try {
+                Object builder = XposedHelpers.newInstance(builderClass, 0); 
+                return XposedHelpers.callMethod(builder, "build");
+            } catch (Throwable t) {}
+
+            // 3. Try Legacy GnssStatus Constructors
+            Class<?> gnssStatusClass = Class.forName("android.location.GnssStatus");
+            Constructor<?>[] constructors = gnssStatusClass.getDeclaredConstructors();
+            for (Constructor<?> c : constructors) {
+                try {
+                    c.setAccessible(true);
+                    Class<?>[] params = c.getParameterTypes();
+                    Object[] args = new Object[params.length];
+                    for (int i = 0; i < params.length; i++) {
+                        Class<?> type = params[i];
+                        if (type == int.class) args[i] = 0;
+                        else if (type == float[].class) args[i] = new float[0];
+                        else if (type == int[].class) args[i] = new int[0];
+                        else args[i] = null;
+                    }
+                    return c.newInstance(args);
+                } catch (Throwable t) {}
+            }
+        } catch (Throwable t) {
+            Log.e(TAG, "getBestDummyGnssStatus fatal: " + t);
+        }
+        return null;
     }
 }
