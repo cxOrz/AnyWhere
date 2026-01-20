@@ -103,6 +103,9 @@ public class ServiceGo extends Service implements SensorEventListener {
         removeTestProviderGPS();
         addTestProviderGPS();
 
+        removeTestProviderFused();
+        addTestProviderFused();
+
         initGoLocation();
 
         initNotification();
@@ -148,6 +151,7 @@ public class ServiceGo extends Service implements SensorEventListener {
 
         removeTestProviderNetwork();
         removeTestProviderGPS();
+        removeTestProviderFused();
 
         unregisterReceiver(mActReceiver);
         stopForeground(STOP_FOREGROUND_REMOVE);
@@ -248,12 +252,13 @@ public class ServiceGo extends Service implements SensorEventListener {
             @Override
             public void handleMessage(@NonNull Message msg) {
                 try {
-                    // 模拟真实 GPS 频率，通常为 1Hz (1000ms)
-                    Thread.sleep(1000);
+                    // 模拟真实 GPS 频率，提高到 10Hz (100ms) 以减少闪回
+                    Thread.sleep(100);
 
                     if (!isStop) {
                         setLocationNetwork();
                         setLocationGPS();
+                        setLocationFused();
 
                         sendEmptyMessage(HANDLER_MSG_ID);
                     }
@@ -380,6 +385,63 @@ public class ServiceGo extends Service implements SensorEventListener {
             mLocManager.setTestProviderLocation(LocationManager.NETWORK_PROVIDER, loc);
         } catch (Exception e) {
             XLog.e("SERVICEGO: ERROR - setLocationNetwork");
+        }
+    }
+
+    private void removeTestProviderFused() {
+        try {
+            String providerName = "fused";
+            if (mLocManager.isProviderEnabled(providerName)) {
+                mLocManager.setTestProviderEnabled(providerName, false);
+                mLocManager.removeTestProvider(providerName);
+            }
+        } catch (Exception e) {
+            XLog.e("SERVICEGO: ERROR - removeTestProviderFused");
+        }
+    }
+
+    @SuppressLint("wrongconstant")
+    private void addTestProviderFused() {
+        try {
+            String providerName = "fused";
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                mLocManager.addTestProvider(providerName, false, false, false,
+                        false, true, true, true, ProviderProperties.POWER_USAGE_LOW, ProviderProperties.ACCURACY_FINE);
+            } else {
+                mLocManager.addTestProvider(providerName, false, false, false,
+                        false, true, true, true, Criteria.POWER_LOW, Criteria.ACCURACY_FINE);
+            }
+            if (!mLocManager.isProviderEnabled(providerName)) {
+                mLocManager.setTestProviderEnabled(providerName, true);
+            }
+        } catch (Exception e) {
+            XLog.e("SERVICEGO: ERROR - addTestProviderFused");
+        }
+    }
+
+    private void setLocationFused() {
+        try {
+            // 添加随机噪点
+            double noiseLat = (mRandom.nextDouble() - 0.5) * 0.00004;
+            double noiseLng = (mRandom.nextDouble() - 0.5) * 0.00004;
+            double noiseAlt = (mRandom.nextDouble() - 0.5) * 1.0;
+
+            Location loc = new Location("fused");
+            loc.setAccuracy(Criteria.ACCURACY_FINE);
+            loc.setAltitude(mCurAlt + noiseAlt);
+            loc.setBearing(mRealBearing);
+            loc.setLatitude(mCurLat + noiseLat);
+            loc.setLongitude(mCurLng + noiseLng);
+            loc.setTime(System.currentTimeMillis());
+            loc.setSpeed((float) mSpeed);
+            loc.setElapsedRealtimeNanos(SystemClock.elapsedRealtimeNanos());
+            Bundle bundle = new Bundle();
+            bundle.putInt("satellites", 7);
+            loc.setExtras(bundle);
+
+            mLocManager.setTestProviderLocation("fused", loc);
+        } catch (Exception e) {
+            XLog.e("SERVICEGO: ERROR - setLocationFused");
         }
     }
 
