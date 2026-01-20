@@ -3,7 +3,6 @@ package com.cxorz.anywhere.xposed;
 import android.content.ContentResolver;
 import android.location.Location;
 import android.location.LocationManager;
-import android.location.LocationListener;
 import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.Bundle;
@@ -105,11 +104,6 @@ public class HideMockHook implements IXposedHookLoadPackage {
             final Handler mainHandler = new Handler(Looper.getMainLooper());
             final List<Object> gnssCallbacks = new ArrayList<>();
 
-            // 移除旧的 LocationManager removeUpdates Hook (如果只用于 GPS Listener 清理的话)
-            // 但如果用于通用 LocationListener 清理，可以保留。这里主要关注 GpsStatus，所以保留 removeUpdates 对通用 Listener 还是有用的，
-            // 不过为了纯净，我们假设 removeUpdates 主要影响 location 监听。
-            // 这里我们不再维护 gpsListeners 列表。
-
             // =========================================================================
             // GnssStatus Hook (Android N+)
             // =========================================================================
@@ -189,6 +183,20 @@ public class HideMockHook implements IXposedHookLoadPackage {
                 };
                 XposedHelpers.findAndHookMethod(LocationManager.class, "registerGnssStatusCallback", gnssCallbackClass, registerGnssHook);
                 XposedHelpers.findAndHookMethod(LocationManager.class, "registerGnssStatusCallback", gnssCallbackClass, android.os.Handler.class, registerGnssHook);
+                
+                // 2.1 拦截注销 (防止内存泄漏)
+                XposedHelpers.findAndHookMethod(LocationManager.class, "unregisterGnssStatusCallback", gnssCallbackClass, new XC_MethodReplacement() {
+                    @Override
+                    protected Object replaceHookedMethod(MethodHookParam param) throws Throwable {
+                        Object callback = param.args[0];
+                        if (callback != null) {
+                            synchronized (gnssCallbacks) {
+                                gnssCallbacks.remove(callback);
+                            }
+                        }
+                        return null;
+                    }
+                });
 
                 // 3. 模拟循环
                 Runnable simulator = new Runnable() {

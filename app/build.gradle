@@ -27,8 +27,8 @@ android {
         minSdkVersion 24
         //noinspection ExpiredTargetSdkVersion
         targetSdkVersion 34
-        versionCode 1123
-        versionName '1.12.3' // https://semver.org/lang/zh-CN/
+        versionCode 2014
+        versionName '2.1.4' // https://semver.org/lang/zh-CN/
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         resourceConfigurations += ['zh', 'zh-rCN', 'en', 'en-rUS']
         ndk {
