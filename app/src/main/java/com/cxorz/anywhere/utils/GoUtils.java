@@ -85,7 +85,7 @@ public class GoUtils {
         return actNw != null && (actNw.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
                 || actNw.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)
                 || actNw.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
-                || actNw.hasTransport(NetworkCapabilities.TRANSPORT_BLUETOOTH));gv
+                || actNw.hasTransport(NetworkCapabilities.TRANSPORT_BLUETOOTH));
     }
 
     // 网络是否可用
