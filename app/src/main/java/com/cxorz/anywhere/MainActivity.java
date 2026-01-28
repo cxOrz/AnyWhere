@@ -90,7 +90,7 @@ public class MainActivity extends BaseActivity implements SensorEventListener {
     private OkHttpClient mOkHttpClient;
     private SharedPreferences sharedPreferences;
 
-    /*============================== 主界面地图 相关 ==============================*/
+    /* ============================== 主界面地图 相关 ============================== */
     /************** 地图 *****************/
     public static String mCurrentCity = null;
     private MapView mMapView;
@@ -103,10 +103,10 @@ public class MainActivity extends BaseActivity implements SensorEventListener {
     private SensorManager mSensorManager;
     private Sensor mSensorAccelerometer;
     private Sensor mSensorMagnetic;
-    private float[] mAccValues = new float[3];//加速度传感器数据
-    private float[] mMagValues = new float[3];//地磁传感器数据
-    private final float[] mR = new float[9];//旋转矩阵，用来保存磁场和加速度的数据
-    private final float[] mDirectionValues = new float[3];//模拟方向传感器的数据（原始数据为弧度）
+    private float[] mAccValues = new float[3];// 加速度传感器数据
+    private float[] mMagValues = new float[3];// 地磁传感器数据
+    private final float[] mR = new float[9];// 旋转矩阵，用来保存磁场和加速度的数据
+    private final float[] mDirectionValues = new float[3];// 模拟方向传感器的数据（原始数据为弧度）
     /************** 定位 *****************/
     private double mCurrentLat = 0.0;
     private double mCurrentLon = 0.0;
@@ -116,10 +116,12 @@ public class MainActivity extends BaseActivity implements SensorEventListener {
     private ServiceGo.ServiceGoBinder mServiceBinder;
     private ServiceConnection mConnection;
     private FloatingActionButton mButtonStart;
-    /*============================== 历史记录 相关 ==============================*/
+    /* ============================== 历史记录 相关 ============================== */
     private SQLiteDatabase mLocationHistoryDB;
     private SQLiteDatabase mSearchHistoryDB;
-    /*============================== SearchView 相关 ==============================*/
+    /*
+     * ============================== SearchView 相关 ==============================
+     */
     private SearchView searchView;
     private ListView mSearchList;
     private LinearLayout mSearchLayout;
@@ -140,13 +142,14 @@ public class MainActivity extends BaseActivity implements SensorEventListener {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        
+
         if (savedInstanceState != null) {
             mCurrentZoom = savedInstanceState.getDouble("MAP_ZOOM", 16.0);
         }
-        
+
         // OSMDroid configuration
-        Configuration.getInstance().load(getApplicationContext(), PreferenceManager.getDefaultSharedPreferences(getApplicationContext()));
+        Configuration.getInstance().load(getApplicationContext(),
+                PreferenceManager.getDefaultSharedPreferences(getApplicationContext()));
         Configuration.getInstance().setUserAgentValue(getPackageName());
 
         setContentView(R.layout.activity_main);
@@ -195,7 +198,7 @@ public class MainActivity extends BaseActivity implements SensorEventListener {
         mConnection = new ServiceConnection() {
             @Override
             public void onServiceConnected(ComponentName name, IBinder service) {
-                mServiceBinder = (ServiceGo.ServiceGoBinder)service;
+                mServiceBinder = (ServiceGo.ServiceGoBinder) service;
             }
 
             @Override
@@ -205,7 +208,7 @@ public class MainActivity extends BaseActivity implements SensorEventListener {
         };
 
         initSearchView();
-        
+
         handleIntent(getIntent());
 
         // Modern way to handle back press
@@ -228,7 +231,7 @@ public class MainActivity extends BaseActivity implements SensorEventListener {
         setIntent(intent);
         handleIntent(intent);
     }
-    
+
     private void handleIntent(Intent intent) {
         if (intent != null && intent.getBooleanExtra("SHOW_LOCATION", false)) {
             String name = intent.getStringExtra("NAME");
@@ -240,7 +243,7 @@ public class MainActivity extends BaseActivity implements SensorEventListener {
                     double lat = Double.parseDouble(latStr);
                     mMarkLatLngMap = new GeoPoint(lat, lng);
                     mMarkName = name;
-                    
+
                     if (mMapView != null && mMapController != null) {
                         mMapController.setCenter(mMarkLatLngMap);
                         markMap();
@@ -255,7 +258,8 @@ public class MainActivity extends BaseActivity implements SensorEventListener {
     @Override
     protected void onPause() {
         XLog.i("MainActivity: onPause");
-        if (mMapView != null) mMapView.onPause();
+        if (mMapView != null)
+            mMapView.onPause();
         if (mSensorManager != null) {
             mSensorManager.unregisterListener(this);
         }
@@ -265,7 +269,8 @@ public class MainActivity extends BaseActivity implements SensorEventListener {
     @Override
     protected void onResume() {
         XLog.i("MainActivity: onResume");
-        if (mMapView != null) mMapView.onResume();
+        if (mMapView != null)
+            mMapView.onResume();
         if (mSensorManager != null) {
             if (mSensorAccelerometer != null) {
                 mSensorManager.registerListener(this, mSensorAccelerometer, SensorManager.SENSOR_DELAY_UI);
@@ -308,13 +313,14 @@ public class MainActivity extends BaseActivity implements SensorEventListener {
     public boolean onCreateOptionsMenu(final Menu menu) {
         getMenuInflater().inflate(R.menu.menu_main, menu);
         searchItem = menu.findItem(R.id.action_search);
-        searchItem.setOnActionExpandListener(new  MenuItem.OnActionExpandListener() {
+        searchItem.setOnActionExpandListener(new MenuItem.OnActionExpandListener() {
             @Override
             public boolean onMenuItemActionCollapse(MenuItem item) {
                 mSearchLayout.setVisibility(View.INVISIBLE);
                 mHistoryLayout.setVisibility(View.INVISIBLE);
                 return true;
             }
+
             @Override
             public boolean onMenuItemActionExpand(MenuItem item) {
                 mSearchLayout.setVisibility(View.INVISIBLE);
@@ -325,18 +331,18 @@ public class MainActivity extends BaseActivity implements SensorEventListener {
                             MainActivity.this,
                             data,
                             R.layout.search_item,
-                            new String[] {DataBaseHistorySearch.DB_COLUMN_KEY,
+                            new String[] { DataBaseHistorySearch.DB_COLUMN_KEY,
                                     DataBaseHistorySearch.DB_COLUMN_DESCRIPTION,
                                     DataBaseHistorySearch.DB_COLUMN_TIMESTAMP,
                                     DataBaseHistorySearch.DB_COLUMN_IS_LOCATION,
                                     DataBaseHistorySearch.DB_COLUMN_LONGITUDE_CUSTOM,
-                                    DataBaseHistorySearch.DB_COLUMN_LATITUDE_CUSTOM},
-                            new int[] {R.id.search_key,
+                                    DataBaseHistorySearch.DB_COLUMN_LATITUDE_CUSTOM },
+                            new int[] { R.id.search_key,
                                     R.id.search_description,
                                     R.id.search_timestamp,
                                     R.id.search_isLoc,
                                     R.id.search_longitude,
-                                    R.id.search_latitude});
+                                    R.id.search_latitude });
                     mSearchHistoryList.setAdapter(simAdapt);
                     mHistoryLayout.setVisibility(View.VISIBLE);
                 }
@@ -392,24 +398,26 @@ public class MainActivity extends BaseActivity implements SensorEventListener {
                         data.add(poiItem);
                     }
                     runOnUiThread(() -> {
-                         SimpleAdapter simAdapt = new SimpleAdapter(
+                        SimpleAdapter simAdapt = new SimpleAdapter(
                                 MainActivity.this,
                                 data,
                                 R.layout.search_poi_item,
-                                new String[] {POI_NAME, POI_ADDRESS, POI_LONGITUDE, POI_LATITUDE},
-                                new int[] {R.id.poi_name, R.id.poi_address, R.id.poi_longitude, R.id.poi_latitude});
+                                new String[] { POI_NAME, POI_ADDRESS, POI_LONGITUDE, POI_LATITUDE },
+                                new int[] { R.id.poi_name, R.id.poi_address, R.id.poi_longitude, R.id.poi_latitude });
                         mSearchList.setAdapter(simAdapt);
                         mSearchLayout.setVisibility(View.VISIBLE);
-                        
+
                         ContentValues contentValues = new ContentValues();
                         contentValues.put(DataBaseHistorySearch.DB_COLUMN_KEY, query);
                         contentValues.put(DataBaseHistorySearch.DB_COLUMN_DESCRIPTION, "搜索关键字");
-                        contentValues.put(DataBaseHistorySearch.DB_COLUMN_IS_LOCATION, DataBaseHistorySearch.DB_SEARCH_TYPE_KEY);
+                        contentValues.put(DataBaseHistorySearch.DB_COLUMN_IS_LOCATION,
+                                DataBaseHistorySearch.DB_SEARCH_TYPE_KEY);
                         contentValues.put(DataBaseHistorySearch.DB_COLUMN_TIMESTAMP, System.currentTimeMillis() / 1000);
                         DataBaseHistorySearch.saveHistorySearch(mSearchHistoryDB, contentValues);
                     });
                 } else {
-                    runOnUiThread(() -> GoUtils.DisplayToast(MainActivity.this, getResources().getString(R.string.app_search_null)));
+                    runOnUiThread(() -> GoUtils.DisplayToast(MainActivity.this,
+                            getResources().getString(R.string.app_search_null)));
                 }
             } catch (Exception e) {
                 runOnUiThread(() -> {
@@ -422,10 +430,9 @@ public class MainActivity extends BaseActivity implements SensorEventListener {
 
     @Override
     public void onSensorChanged(SensorEvent sensorEvent) {
-        if(sensorEvent.sensor.getType() == Sensor.TYPE_ACCELEROMETER){
+        if (sensorEvent.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
             mAccValues = sensorEvent.values;
-        }
-        else if(sensorEvent.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD){
+        } else if (sensorEvent.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD) {
             mMagValues = sensorEvent.values;
         }
 
@@ -464,7 +471,8 @@ public class MainActivity extends BaseActivity implements SensorEventListener {
         // Theme Toggle Button in Footer
         com.google.android.material.button.MaterialButton btnToggle = findViewById(R.id.btn_theme_toggle);
         if (btnToggle != null) {
-            int currentNightMode = getResources().getConfiguration().uiMode & android.content.res.Configuration.UI_MODE_NIGHT_MASK;
+            int currentNightMode = getResources().getConfiguration().uiMode
+                    & android.content.res.Configuration.UI_MODE_NIGHT_MASK;
             boolean isDark = currentNightMode == android.content.res.Configuration.UI_MODE_NIGHT_YES;
 
             if (isDark) {
@@ -475,9 +483,11 @@ public class MainActivity extends BaseActivity implements SensorEventListener {
 
             btnToggle.setOnClickListener(v -> {
                 if (isDark) {
-                    androidx.appcompat.app.AppCompatDelegate.setDefaultNightMode(androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_NO);
+                    androidx.appcompat.app.AppCompatDelegate
+                            .setDefaultNightMode(androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_NO);
                 } else {
-                    androidx.appcompat.app.AppCompatDelegate.setDefaultNightMode(androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_YES);
+                    androidx.appcompat.app.AppCompatDelegate
+                            .setDefaultNightMode(androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_YES);
                 }
             });
         }
@@ -490,16 +500,19 @@ public class MainActivity extends BaseActivity implements SensorEventListener {
         mMapView.setMultiTouchControls(true);
 
         // Apply dark mode filter if needed
-        int nightModeFlags = getResources().getConfiguration().uiMode & android.content.res.Configuration.UI_MODE_NIGHT_MASK;
+        int nightModeFlags = getResources().getConfiguration().uiMode
+                & android.content.res.Configuration.UI_MODE_NIGHT_MASK;
         if (nightModeFlags == android.content.res.Configuration.UI_MODE_NIGHT_YES) {
-            // High-quality Night Mode Matrix: Inverts colors and slightly adjusts for eye comfort
+            // High-quality Night Mode Matrix: Inverts colors and slightly adjusts for eye
+            // comfort
             float[] nightMatrix = {
-                -1.0f, 0, 0, 0, 255,
-                0, -1.0f, 0, 0, 255,
-                0, 0, -1.0f, 0, 255,
-                0, 0, 0, 1.0f, 0
+                    -1.0f, 0, 0, 0, 255,
+                    0, -1.0f, 0, 0, 255,
+                    0, 0, -1.0f, 0, 255,
+                    0, 0, 0, 1.0f, 0
             };
-            mMapView.getOverlayManager().getTilesOverlay().setColorFilter(new android.graphics.ColorMatrixColorFilter(nightMatrix));
+            mMapView.getOverlayManager().getTilesOverlay()
+                    .setColorFilter(new android.graphics.ColorMatrixColorFilter(nightMatrix));
         }
 
         // Restore map click listener
@@ -524,7 +537,7 @@ public class MainActivity extends BaseActivity implements SensorEventListener {
         GeoPoint startPoint = new GeoPoint(39.9042, 116.4074);
         mMapController.setCenter(startPoint);
     }
-    
+
     private void performReverseGeocoding(GeoPoint p) {
         new Thread(() -> {
             GeocoderNominatim geocoder = new GeocoderNominatim(Locale.getDefault(), getPackageName());
@@ -533,37 +546,41 @@ public class MainActivity extends BaseActivity implements SensorEventListener {
                 if (addresses != null && !addresses.isEmpty()) {
                     Address addr = addresses.get(0);
                     mMarkName = addr.getAddressLine(0);
-                    
+
                     runOnUiThread(() -> {
                         View poiView = View.inflate(MainActivity.this, R.layout.location_poi_info, null);
                         TextView poiAddress = poiView.findViewById(R.id.poi_address);
                         TextView poiLongitude = poiView.findViewById(R.id.poi_longitude);
                         TextView poiLatitude = poiView.findViewById(R.id.poi_latitude);
-                        
+
                         poiAddress.setText(mMarkName);
                         poiLongitude.setText(String.valueOf(p.getLongitude()));
                         poiLatitude.setText(String.valueOf(p.getLatitude()));
-                        
+
                         ImageButton ibSave = poiView.findViewById(R.id.poi_save);
                         ibSave.setOnClickListener(v -> {
                             recordCurrentLocation(mMarkLatLngMap.getLongitude(), mMarkLatLngMap.getLatitude());
-                            GoUtils.DisplayToast(MainActivity.this, getResources().getString(R.string.app_location_save));
+                            GoUtils.DisplayToast(MainActivity.this,
+                                    getResources().getString(R.string.app_location_save));
                         });
                         ImageButton ibCopy = poiView.findViewById(R.id.poi_copy);
                         ibCopy.setOnClickListener(v -> {
                             ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
                             ClipData mClipData = ClipData.newPlainText("Label", mMarkLatLngMap.toString());
                             cm.setPrimaryClip(mClipData);
-                            GoUtils.DisplayToast(MainActivity.this,  getResources().getString(R.string.app_location_copy));
+                            GoUtils.DisplayToast(MainActivity.this,
+                                    getResources().getString(R.string.app_location_copy));
                         });
                         ImageButton ibShare = poiView.findViewById(R.id.poi_share);
-                        ibShare.setOnClickListener(v -> ShareUtils.shareText(MainActivity.this, "分享位置", poiLongitude.getText()+","+poiLatitude.getText()));
+                        ibShare.setOnClickListener(v -> ShareUtils.shareText(MainActivity.this, "分享位置",
+                                poiLongitude.getText() + "," + poiLatitude.getText()));
                         ImageButton ibFly = poiView.findViewById(R.id.poi_fly);
                         ibFly.setOnClickListener(this::doGoLocation);
-                        
+
                         if (mCurrentMarker != null) {
                             mCurrentMarker.setTitle(mMarkName);
-                            mCurrentMarker.setSubDescription(String.valueOf(p.getLatitude()) + "," + String.valueOf(p.getLongitude()));
+                            mCurrentMarker.setSubDescription(
+                                    String.valueOf(p.getLatitude()) + "," + String.valueOf(p.getLongitude()));
                             mCurrentMarker.showInfoWindow();
                         }
                     });
@@ -576,7 +593,8 @@ public class MainActivity extends BaseActivity implements SensorEventListener {
 
     private android.graphics.Bitmap getBitmapFromDrawable(int resId) {
         android.graphics.drawable.Drawable drawable = androidx.core.content.ContextCompat.getDrawable(this, resId);
-        if (drawable == null) return null;
+        if (drawable == null)
+            return null;
 
         android.graphics.Bitmap bitmap = android.graphics.Bitmap.createBitmap(drawable.getIntrinsicWidth(),
                 drawable.getIntrinsicHeight(), android.graphics.Bitmap.Config.ARGB_8888);
@@ -599,7 +617,7 @@ public class MainActivity extends BaseActivity implements SensorEventListener {
 
         mLocationOverlay.enableMyLocation();
         mMapView.getOverlays().add(mLocationOverlay);
-        
+
         if (!hasHistory) {
             mLocationOverlay.runOnFirstFix(() -> runOnUiThread(() -> {
                 GeoPoint myLoc = mLocationOverlay.getMyLocation();
@@ -616,16 +634,19 @@ public class MainActivity extends BaseActivity implements SensorEventListener {
     }
 
     private boolean moveToLastHistoryLocation() {
-        if (mLocationHistoryDB == null) return false;
+        if (mLocationHistoryDB == null)
+            return false;
         boolean found = false;
         try {
             Cursor cursor = mLocationHistoryDB.query(DataBaseHistoryLocation.TABLE_NAME, null,
-                    DataBaseHistoryLocation.DB_COLUMN_ID + " > ?", new String[] {"0"},
+                    DataBaseHistoryLocation.DB_COLUMN_ID + " > ?", new String[] { "0" },
                     null, null, DataBaseHistoryLocation.DB_COLUMN_TIMESTAMP + " DESC", "1");
 
             if (cursor.moveToFirst()) {
-                String lngStr = cursor.getString(cursor.getColumnIndexOrThrow(DataBaseHistoryLocation.DB_COLUMN_LONGITUDE_WGS84));
-                String latStr = cursor.getString(cursor.getColumnIndexOrThrow(DataBaseHistoryLocation.DB_COLUMN_LATITUDE_WGS84));
+                String lngStr = cursor
+                        .getString(cursor.getColumnIndexOrThrow(DataBaseHistoryLocation.DB_COLUMN_LONGITUDE_WGS84));
+                String latStr = cursor
+                        .getString(cursor.getColumnIndexOrThrow(DataBaseHistoryLocation.DB_COLUMN_LATITUDE_WGS84));
 
                 double lng = Double.parseDouble(lngStr);
                 double lat = Double.parseDouble(latStr);
@@ -670,6 +691,33 @@ public class MainActivity extends BaseActivity implements SensorEventListener {
             final EditText dialog_lng = view.findViewById(R.id.joystick_longitude);
             final EditText dialog_lat = view.findViewById(R.id.joystick_latitude);
 
+            final EditText dialog_ip = view.findViewById(R.id.input_ip_address);
+            final com.google.android.material.button.MaterialButton btnGetIp = view
+                    .findViewById(R.id.btn_get_ip_location);
+
+            btnGetIp.setOnClickListener(v3 -> {
+                String ip = dialog_ip.getText().toString();
+                GoUtils.getIpLocation(ip, new GoUtils.LocationCallback() {
+                    @Override
+                    public void onSuccess(double lat, double lng) {
+                        runOnUiThread(() -> {
+                            dialog_lat.setText(String.valueOf(lat));
+                            dialog_lng.setText(String.valueOf(lng));
+                            GoUtils.DisplayToast(MainActivity.this,
+                                    getResources().getString(R.string.ip_location_success));
+                        });
+                    }
+
+                    @Override
+                    public void onError(String msg) {
+                        runOnUiThread(() -> {
+                            GoUtils.DisplayToast(MainActivity.this,
+                                    getResources().getString(R.string.ip_location_error) + ": " + msg);
+                        });
+                    }
+                });
+            });
+
             final MaterialButton btnCancel = view.findViewById(R.id.input_position_cancel);
             final MaterialButton btnGo = view.findViewById(R.id.input_position_ok);
 
@@ -685,9 +733,11 @@ public class MainActivity extends BaseActivity implements SensorEventListener {
                         double dialog_lat_double = Double.parseDouble(dialog_lat_str);
 
                         if (dialog_lng_double > 180.0 || dialog_lng_double < -180.0) {
-                            GoUtils.DisplayToast(MainActivity.this, getResources().getString(R.string.app_error_longitude));
+                            GoUtils.DisplayToast(MainActivity.this,
+                                    getResources().getString(R.string.app_error_longitude));
                         } else if (dialog_lat_double > 90.0 || dialog_lat_double < -90.0) {
-                            GoUtils.DisplayToast(MainActivity.this, getResources().getString(R.string.app_error_latitude));
+                            GoUtils.DisplayToast(MainActivity.this,
+                                    getResources().getString(R.string.app_error_latitude));
                         } else {
                             mMarkLatLngMap = new GeoPoint(dialog_lat_double, dialog_lng_double);
                             mMarkName = "手动输入的坐标";
@@ -724,8 +774,8 @@ public class MainActivity extends BaseActivity implements SensorEventListener {
 
     private void resetMap() {
         if (mLocationOverlay.getMyLocation() != null) {
-             mMapController.animateTo(mLocationOverlay.getMyLocation());
-             mMarkLatLngMap = mLocationOverlay.getMyLocation();
+            mMapController.animateTo(mLocationOverlay.getMyLocation());
+            mMarkLatLngMap = mLocationOverlay.getMyLocation();
         } else {
             if (!GoUtils.isGpsOpened(this)) {
                 GoUtils.DisplayToast(this, getResources().getString(R.string.app_error_gps));
@@ -736,7 +786,7 @@ public class MainActivity extends BaseActivity implements SensorEventListener {
     }
 
     public static boolean showLocation(String name, String longitude, String latitude) {
-        return false; 
+        return false;
     }
 
     private void initGoBtn() {
@@ -800,14 +850,16 @@ public class MainActivity extends BaseActivity implements SensorEventListener {
 
                 recordCurrentLocation(mMarkLatLngMap.getLongitude(), mMarkLatLngMap.getLatitude());
 
-                if (mCurrentMarker != null) mMapView.getOverlays().remove(mCurrentMarker);
+                if (mCurrentMarker != null)
+                    mMapView.getOverlays().remove(mCurrentMarker);
                 mMarkLatLngMap = null;
                 mMapView.invalidate();
 
-                                if (GoUtils.isWifiEnabled(MainActivity.this) && !isWifiWarningShown) {
-                                    GoUtils.showWifiWarningToast(MainActivity.this);
-                                    isWifiWarningShown = true;
-                                }            }
+                if (GoUtils.isWifiEnabled(MainActivity.this) && !isWifiWarningShown) {
+                    GoUtils.showWifiWarningToast(MainActivity.this);
+                    isWifiWarningShown = true;
+                }
+            }
         } else {
             if (!GoUtils.isAllowMockLocation(this)) {
                 GoUtils.showEnableMockLocationDialog(this);
@@ -823,15 +875,17 @@ public class MainActivity extends BaseActivity implements SensorEventListener {
                             .setAction("Action", null).show();
 
                     recordCurrentLocation(mMarkLatLngMap.getLongitude(), mMarkLatLngMap.getLatitude());
-                    
-                    if (mCurrentMarker != null) mMapView.getOverlays().remove(mCurrentMarker);
+
+                    if (mCurrentMarker != null)
+                        mMapView.getOverlays().remove(mCurrentMarker);
                     mMarkLatLngMap = null;
                     mMapView.invalidate();
 
-                                    if (GoUtils.isWifiEnabled(MainActivity.this) && !isWifiWarningShown) {
-                                        GoUtils.showWifiWarningToast(MainActivity.this);
-                                        isWifiWarningShown = true;
-                                    }                }
+                    if (GoUtils.isWifiEnabled(MainActivity.this) && !isWifiWarningShown) {
+                        GoUtils.showWifiWarningToast(MainActivity.this);
+                        isWifiWarningShown = true;
+                    }
+                }
             }
         }
     }
@@ -852,7 +906,7 @@ public class MainActivity extends BaseActivity implements SensorEventListener {
 
         try {
             Cursor cursor = mSearchHistoryDB.query(DataBaseHistorySearch.TABLE_NAME, null,
-                    DataBaseHistorySearch.DB_COLUMN_ID + " > ?", new String[] {"0"},
+                    DataBaseHistorySearch.DB_COLUMN_ID + " > ?", new String[] { "0" },
                     null, null, DataBaseHistorySearch.DB_COLUMN_TIMESTAMP + " DESC", null);
 
             while (cursor.moveToNext()) {
@@ -882,7 +936,7 @@ public class MainActivity extends BaseActivity implements SensorEventListener {
                 if (addresses != null && !addresses.isEmpty()) {
                     addressStr = addresses.get(0).getAddressLine(0);
                 }
-                
+
                 ContentValues contentValues = new ContentValues();
                 contentValues.put(DataBaseHistoryLocation.DB_COLUMN_LOCATION, addressStr);
                 contentValues.put(DataBaseHistoryLocation.DB_COLUMN_LONGITUDE_WGS84, String.valueOf(lng));
@@ -908,13 +962,14 @@ public class MainActivity extends BaseActivity implements SensorEventListener {
             String lat = ((TextView) view.findViewById(R.id.poi_latitude)).getText().toString();
             mMarkName = ((TextView) view.findViewById(R.id.poi_name)).getText().toString();
             mMarkLatLngMap = new GeoPoint(Double.parseDouble(lat), Double.parseDouble(lng));
-            
+
             mMapController.setCenter(mMarkLatLngMap);
             markMap();
 
             ContentValues contentValues = new ContentValues();
             contentValues.put(DataBaseHistorySearch.DB_COLUMN_KEY, mMarkName);
-            contentValues.put(DataBaseHistorySearch.DB_COLUMN_DESCRIPTION, ((TextView) view.findViewById(R.id.poi_address)).getText().toString());
+            contentValues.put(DataBaseHistorySearch.DB_COLUMN_DESCRIPTION,
+                    ((TextView) view.findViewById(R.id.poi_address)).getText().toString());
             contentValues.put(DataBaseHistorySearch.DB_COLUMN_IS_LOCATION, DataBaseHistorySearch.DB_SEARCH_TYPE_RESULT);
             contentValues.put(DataBaseHistorySearch.DB_COLUMN_LONGITUDE_CUSTOM, lng);
             contentValues.put(DataBaseHistorySearch.DB_COLUMN_LATITUDE_CUSTOM, lat);
@@ -944,7 +999,8 @@ public class MainActivity extends BaseActivity implements SensorEventListener {
                 ContentValues contentValues = new ContentValues();
                 contentValues.put(DataBaseHistorySearch.DB_COLUMN_KEY, searchKey);
                 contentValues.put(DataBaseHistorySearch.DB_COLUMN_DESCRIPTION, searchDescription);
-                contentValues.put(DataBaseHistorySearch.DB_COLUMN_IS_LOCATION, DataBaseHistorySearch.DB_SEARCH_TYPE_RESULT);
+                contentValues.put(DataBaseHistorySearch.DB_COLUMN_IS_LOCATION,
+                        DataBaseHistorySearch.DB_SEARCH_TYPE_RESULT);
                 contentValues.put(DataBaseHistorySearch.DB_COLUMN_LONGITUDE_CUSTOM, lng);
                 contentValues.put(DataBaseHistorySearch.DB_COLUMN_LATITUDE_CUSTOM, lat);
                 contentValues.put(DataBaseHistorySearch.DB_COLUMN_LONGITUDE_WGS84, lng);
@@ -967,11 +1023,12 @@ public class MainActivity extends BaseActivity implements SensorEventListener {
             new AlertDialog.Builder(MainActivity.this)
                     .setTitle("警告")
                     .setMessage("确定要删除该项搜索记录吗?")
-                    .setPositiveButton("确定",(dialog, which) -> {
+                    .setPositiveButton("确定", (dialog, which) -> {
                         String searchKey = ((TextView) view.findViewById(R.id.search_key)).getText().toString();
 
                         try {
-                            mSearchHistoryDB.delete(DataBaseHistorySearch.TABLE_NAME, DataBaseHistorySearch.DB_COLUMN_KEY + " = ?", new String[] {searchKey});
+                            mSearchHistoryDB.delete(DataBaseHistorySearch.TABLE_NAME,
+                                    DataBaseHistorySearch.DB_COLUMN_KEY + " = ?", new String[] { searchKey });
                             List<Map<String, Object>> data = getSearchHistory();
 
                             if (!data.isEmpty()) {
@@ -979,19 +1036,21 @@ public class MainActivity extends BaseActivity implements SensorEventListener {
                                         MainActivity.this,
                                         data,
                                         R.layout.search_item,
-                                        new String[] {DataBaseHistorySearch.DB_COLUMN_KEY,
+                                        new String[] { DataBaseHistorySearch.DB_COLUMN_KEY,
                                                 DataBaseHistorySearch.DB_COLUMN_DESCRIPTION,
                                                 DataBaseHistorySearch.DB_COLUMN_TIMESTAMP,
                                                 DataBaseHistorySearch.DB_COLUMN_IS_LOCATION,
                                                 DataBaseHistorySearch.DB_COLUMN_LONGITUDE_CUSTOM,
-                                                DataBaseHistorySearch.DB_COLUMN_LATITUDE_CUSTOM},
-                                        new int[] {R.id.search_key, R.id.search_description, R.id.search_timestamp, R.id.search_isLoc, R.id.search_longitude, R.id.search_latitude});
+                                                DataBaseHistorySearch.DB_COLUMN_LATITUDE_CUSTOM },
+                                        new int[] { R.id.search_key, R.id.search_description, R.id.search_timestamp,
+                                                R.id.search_isLoc, R.id.search_longitude, R.id.search_latitude });
                                 mSearchHistoryList.setAdapter(simAdapt);
                                 mHistoryLayout.setVisibility(View.VISIBLE);
                             }
                         } catch (Exception e) {
                             XLog.e("ERROR: delete database error");
-                            GoUtils.DisplayToast(MainActivity.this,getResources().getString(R.string.history_delete_error));
+                            GoUtils.DisplayToast(MainActivity.this,
+                                    getResources().getString(R.string.history_delete_error));
                         }
                     })
                     .setNegativeButton("取消",

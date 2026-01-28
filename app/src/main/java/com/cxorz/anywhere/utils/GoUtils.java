@@ -27,11 +27,26 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
+import okhttp3.Call;
+import okhttp3.Callback;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
+import org.json.JSONObject;
+import java.io.IOException;
+
 public class GoUtils {
+    public interface LocationCallback {
+        void onSuccess(double lat, double lng);
+
+        void onError(String msg);
+    }
+
     // WIFI是否可用
     public static boolean isWifiConnected(Context context) {
         // 从 API 29 开始，NetworkInfo 被标记为过时，这里更换新方法
-        ConnectivityManager connectivityManager = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+        ConnectivityManager connectivityManager = (ConnectivityManager) context
+                .getSystemService(Context.CONNECTIVITY_SERVICE);
         Network nw = connectivityManager.getActiveNetwork();
         if (nw == null) {
             return false;
@@ -45,10 +60,11 @@ public class GoUtils {
         return wifiManager.isWifiEnabled();
     }
 
-    //MOBILE网络是否可用
+    // MOBILE网络是否可用
     public static boolean isMobileConnected(Context context) {
         // 从 API 29 开始，NetworkInfo 被标记为过时，这里更换新方法
-        ConnectivityManager connectivityManager = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+        ConnectivityManager connectivityManager = (ConnectivityManager) context
+                .getSystemService(Context.CONNECTIVITY_SERVICE);
         Network nw = connectivityManager.getActiveNetwork();
         if (nw == null) {
             return false;
@@ -60,32 +76,38 @@ public class GoUtils {
     // 断是否有网络连接，但是如果该连接的网络无法上网，也会返回true
     public static boolean isNetworkConnected(Context context) {
         // 从 API 29 开始，NetworkInfo 被标记为过时，这里更换新方法
-        ConnectivityManager connectivityManager = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+        ConnectivityManager connectivityManager = (ConnectivityManager) context
+                .getSystemService(Context.CONNECTIVITY_SERVICE);
         Network nw = connectivityManager.getActiveNetwork();
-        if (nw == null) return false;
+        if (nw == null)
+            return false;
         NetworkCapabilities actNw = connectivityManager.getNetworkCapabilities(nw);
-        return actNw != null && (actNw.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) || actNw.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) || actNw.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) || actNw.hasTransport(NetworkCapabilities.TRANSPORT_BLUETOOTH));
+        return actNw != null && (actNw.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
+                || actNw.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)
+                || actNw.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
+                || actNw.hasTransport(NetworkCapabilities.TRANSPORT_BLUETOOTH));
     }
 
-    //网络是否可用
+    // 网络是否可用
     public static boolean isNetworkAvailable(Context context) {
         return ((isWifiConnected(context) || isMobileConnected(context)) && isNetworkConnected(context));
     }
 
-    //判断GPS是否打开
-    public static  boolean isGpsOpened(Context context) {
+    // 判断GPS是否打开
+    public static boolean isGpsOpened(Context context) {
         LocationManager locationManager = (LocationManager) context.getSystemService(Context.LOCATION_SERVICE);
         return locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER);
     }
 
-    // 判断是否已在开发者选项中开启模拟位置权限（注意下面临时添加 @SuppressLint("wrongconstant") 以处理 addTestProvider 参数值的 lint 错误）
+    // 判断是否已在开发者选项中开启模拟位置权限（注意下面临时添加 @SuppressLint("wrongconstant") 以处理
+    // addTestProvider 参数值的 lint 错误）
     @SuppressLint("wrongconstant")
     public static boolean isAllowMockLocation(Context context) {
         boolean canMockPosition = false;
         int index;
 
         try {
-            LocationManager locationManager = (LocationManager) context.getSystemService(Context.LOCATION_SERVICE);//获得LocationManager引用
+            LocationManager locationManager = (LocationManager) context.getSystemService(Context.LOCATION_SERVICE);// 获得LocationManager引用
 
             List<String> list = locationManager.getAllProviders();
             for (index = 0; index < list.size(); index++) {
@@ -98,7 +120,8 @@ public class GoUtils {
                 // 注意，由于 android api 问题，下面的参数会提示错误(以下参数是通过相关API获取的真实GPS参数，不是随便写的)
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     locationManager.addTestProvider(LocationManager.GPS_PROVIDER, false, true, false,
-                            false, true, true, true, ProviderProperties.POWER_USAGE_HIGH, ProviderProperties.ACCURACY_FINE);
+                            false, true, true, true, ProviderProperties.POWER_USAGE_HIGH,
+                            ProviderProperties.ACCURACY_FINE);
                 } else {
                     locationManager.addTestProvider(LocationManager.GPS_PROVIDER, false, true, false,
                             false, true, true, true, Criteria.POWER_HIGH, Criteria.ACCURACY_FINE);
@@ -121,6 +144,7 @@ public class GoUtils {
 
     /**
      * [获取应用程序版本名称]
+     * 
      * @param context context
      * @return 当前应用的版本名称
      */
@@ -142,12 +166,13 @@ public class GoUtils {
 
     /**
      * 获取App的名称
+     * 
      * @param context 上下文
      * @return 名称
      */
     public static String getAppName(Context context) {
         PackageManager pm = context.getPackageManager();
-        //获取包信息
+        // 获取包信息
         try {
             PackageInfo packageInfo = pm.getPackageInfo(context.getPackageName(), 0);
             ApplicationInfo applicationInfo = packageInfo.applicationInfo;
@@ -160,7 +185,7 @@ public class GoUtils {
         return null;
     }
 
-    public static  String timeStamp2Date(String seconds) {
+    public static String timeStamp2Date(String seconds) {
         if (seconds == null || seconds.isEmpty() || seconds.equals("null")) {
             return "";
         }
@@ -170,12 +195,12 @@ public class GoUtils {
         return sdf.format(new Date(Long.parseLong(seconds + "000")));
     }
 
-    //提醒开启位置模拟的弹框
-    public static  void showEnableMockLocationDialog(Context context) {
+    // 提醒开启位置模拟的弹框
+    public static void showEnableMockLocationDialog(Context context) {
         new AlertDialog.Builder(context)
-                .setTitle("启用位置模拟")//这里是表头的内容
-                .setMessage("请在\"开发者选项→选择模拟位置信息应用\"中进行设置")//这里是中间显示的具体信息
-                .setPositiveButton("设置",(dialog, which) -> {
+                .setTitle("启用位置模拟")// 这里是表头的内容
+                .setMessage("请在\"开发者选项→选择模拟位置信息应用\"中进行设置")// 这里是中间显示的具体信息
+                .setPositiveButton("设置", (dialog, which) -> {
                     try {
                         Intent intent = new Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS);
                         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -184,19 +209,20 @@ public class GoUtils {
                         e.printStackTrace();
                     }
                 })
-                .setNegativeButton("取消",(dialog, which) -> {
+                .setNegativeButton("取消", (dialog, which) -> {
                 })
                 .show();
     }
 
-    //提醒开启悬浮窗的弹框
-    public static  void showEnableFloatWindowDialog(Context context) {
+    // 提醒开启悬浮窗的弹框
+    public static void showEnableFloatWindowDialog(Context context) {
         new AlertDialog.Builder(context)
-                .setTitle("启用悬浮窗")//这里是表头的内容
-                .setMessage("为了模拟定位的稳定性，建议开启\"显示悬浮窗\"选项")//这里是中间显示的具体信息
-                .setPositiveButton("设置",(dialog, which) -> {
+                .setTitle("启用悬浮窗")// 这里是表头的内容
+                .setMessage("为了模拟定位的稳定性，建议开启\"显示悬浮窗\"选项")// 这里是中间显示的具体信息
+                .setPositiveButton("设置", (dialog, which) -> {
                     try {
-                        Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + context.getPackageName()));
+                        Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                Uri.parse("package:" + context.getPackageName()));
                         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                         context.startActivity(intent);
                     } catch (Exception e) {
@@ -209,12 +235,12 @@ public class GoUtils {
                 .show();
     }
 
-    //显示开启GPS的提示
-    public static  void showEnableGpsDialog(Context context) {
+    // 显示开启GPS的提示
+    public static void showEnableGpsDialog(Context context) {
         new AlertDialog.Builder(context)
-                .setTitle("启用定位服务")//这里是表头的内容
-                .setMessage("是否开启 GPS 定位服务?")//这里是中间显示的具体信息
-                .setPositiveButton("确定",(dialog, which) -> {
+                .setTitle("启用定位服务")// 这里是表头的内容
+                .setMessage("是否开启 GPS 定位服务?")// 这里是中间显示的具体信息
+                .setPositiveButton("确定", (dialog, which) -> {
                     try {
                         Intent intent = new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
                         context.startActivity(intent);
@@ -222,7 +248,7 @@ public class GoUtils {
                         e.printStackTrace();
                     }
                 })
-                .setNegativeButton("取消",(dialog, which) -> {
+                .setNegativeButton("取消", (dialog, which) -> {
 
                 })
                 .show();
@@ -233,7 +259,7 @@ public class GoUtils {
         DisplayToast(context, "建议关闭Wifi，使用移动网络，避免位置跳动");
     }
 
-    public static  void DisplayToast(Context context, String str) {
+    public static void DisplayToast(Context context, String str) {
         Toast toast = Toast.makeText(context, str, Toast.LENGTH_LONG);
         toast.setGravity(Gravity.TOP, 0, 100);
         toast.show();
@@ -244,16 +270,16 @@ public class GoUtils {
         private TimeCountListener mListener;
 
         public TimeCount(long millisInFuture, long countDownInterval) {
-            super(millisInFuture, countDownInterval);//参数依次为总时长,和计时的时间间隔
+            super(millisInFuture, countDownInterval);// 参数依次为总时长,和计时的时间间隔
         }
 
         @Override
-        public void onFinish() {//计时完毕时触发
+        public void onFinish() {// 计时完毕时触发
             mListener.onFinish();
         }
 
         @Override
-        public void onTick(long millisUntilFinished) { //计时过程显示
+        public void onTick(long millisUntilFinished) { // 计时过程显示
             mListener.onTick(millisUntilFinished);
         }
 
@@ -263,7 +289,63 @@ public class GoUtils {
 
         public interface TimeCountListener {
             void onTick(long millisUntilFinished);
+
             void onFinish();
         }
     }
+
+    /**
+     * Get location from IP address
+     * 
+     * @param ip       IP address (optional, empty for current IP)
+     * @param callback Callback for result
+     */
+    public static void getIpLocation(String ip, final LocationCallback callback) {
+        String url = "https://ipwho.is/" + (ip == null ? "" : ip);
+        OkHttpClient client = new OkHttpClient();
+        Request request = new Request.Builder()
+                .url(url)
+                .build();
+
+        client.newCall(request).enqueue(new Callback() {
+            @Override
+            public void onFailure(Call call, IOException e) {
+                if (callback != null) {
+                    callback.onError(e.getMessage());
+                }
+            }
+
+            @Override
+            public void onResponse(Call call, Response response) throws IOException {
+                if (!response.isSuccessful()) {
+                    if (callback != null) {
+                        callback.onError("Unexpected code " + response);
+                    }
+                    return;
+                }
+
+                try {
+                    String responseData = response.body().string();
+                    JSONObject jsonObject = new JSONObject(responseData);
+                    if ("fail".equals(jsonObject.optString("status"))) {
+                        if (callback != null) {
+                            callback.onError(jsonObject.optString("message"));
+                        }
+                        return;
+                    }
+
+                    double lat = jsonObject.getDouble("latitude");
+                    double lon = jsonObject.getDouble("longitude");
+                    if (callback != null) {
+                        callback.onSuccess(lat, lon);
+                    }
+                } catch (Exception e) {
+                    if (callback != null) {
+                        callback.onError(e.getMessage());
+                    }
+                }
+            }
+        });
+    }
+
 }

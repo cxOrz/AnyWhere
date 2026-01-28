@@ -115,4 +115,8 @@
     <string name="cur_position">返回当前位置</string>
     <string name="zoom_in">放大</string>
     <string name="zoom_out">缩小</string>
+    <string name="input_ip_hint">IP地址</string>
+    <string name="btn_get_ip_location">从IP获取</string>
+    <string name="ip_location_success">成功获取IP位置</string>
+    <string name="ip_location_error">IP位置获取失败</string>
 </resources>
