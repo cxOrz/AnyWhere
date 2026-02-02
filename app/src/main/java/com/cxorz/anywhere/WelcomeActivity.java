@@ -30,6 +30,27 @@ public class WelcomeActivity extends AppCompatActivity {
 
         Button startBtn = findViewById(R.id.startButton);
         startBtn.setOnClickListener(v -> startMainActivity());
+
+        // 自动检查权限，如果已授权则直接进入主页
+        checkAutoLogin();
+    }
+
+    private void checkAutoLogin() {
+        if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED &&
+            checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            
+            boolean notificationGranted = true;
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                    notificationGranted = false;
+                }
+            }
+
+            if (notificationGranted) {
+                isPermission = true;
+                proceedToMain();
+            }
+        }
     }
 
     @Override
@@ -61,6 +82,12 @@ public class WelcomeActivity extends AppCompatActivity {
 
         if (checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             ReqPermissions.add(Manifest.permission.ACCESS_COARSE_LOCATION);
+        }
+
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                ReqPermissions.add(Manifest.permission.POST_NOTIFICATIONS);
+            }
         }
 
         if (ReqPermissions.isEmpty()) {

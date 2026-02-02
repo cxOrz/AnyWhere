@@ -199,8 +199,10 @@ public class ServiceGo extends Service implements SensorEventListener {
         Intent clickIntent = new Intent(this, MainActivity.class);
         PendingIntent clickPI = PendingIntent.getActivity(this, 1, clickIntent, PendingIntent.FLAG_IMMUTABLE);
         Intent showIntent = new Intent(SERVICE_GO_NOTE_ACTION_JOYSTICK_SHOW);
+        showIntent.setPackage(getPackageName());
         PendingIntent showPendingPI = PendingIntent.getBroadcast(this, 0, showIntent, PendingIntent.FLAG_IMMUTABLE);
         Intent hideIntent = new Intent(SERVICE_GO_NOTE_ACTION_JOYSTICK_HIDE);
+        hideIntent.setPackage(getPackageName());
         PendingIntent hidePendingPI = PendingIntent.getBroadcast(this, 0, hideIntent, PendingIntent.FLAG_IMMUTABLE);
 
         Notification notification = new NotificationCompat.Builder(this, SERVICE_GO_NOTE_CHANNEL_ID)
@@ -238,7 +240,13 @@ public class ServiceGo extends Service implements SensorEventListener {
                 mCurAlt = alt;
             }
         });
-        mJoyStick.show();
+
+        // 根据设置决定是否显示摇杆
+        android.content.SharedPreferences sp = androidx.preference.PreferenceManager.getDefaultSharedPreferences(this);
+        boolean isJoyStickEnabled = sp.getBoolean("setting_joystick_state", false);
+        if (isJoyStickEnabled) {
+            mJoyStick.show();
+        }
     }
 
     private void initGoLocation() {

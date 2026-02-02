@@ -51,6 +51,7 @@
 
     <!-- 移动相关参数 -->
     <string name="setting_group_move">移动</string>
+    <string name="setting_joystick_state">开启摇杆</string>
     <string name="setting_joystick_type">摇杆类型</string>
     <string name="setting_walk">步行速度(米/秒)</string>
     <string name="setting_walk_default">1.2</string>

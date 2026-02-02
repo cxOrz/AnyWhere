@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="snackbar_bg">#F0F0F0</color>
-    <color name="snackbar_text">#101010</color>
+    <color name="snackbar_bg">#303030</color>
+    <color name="snackbar_text">#FFFFFF</color>
 </resources>

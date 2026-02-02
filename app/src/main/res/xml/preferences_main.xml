@@ -5,6 +5,11 @@
     <PreferenceCategory
         app:title="@string/setting_group_move"
         app:iconSpaceReserved="false">
+        <SwitchPreferenceCompat
+            app:key="setting_joystick_state"
+            app:title="@string/setting_joystick_state"
+            app:defaultValue="false"
+            app:iconSpaceReserved="false"/>
         <ListPreference
             app:key="setting_joystick_type"
             app:title="@string/setting_joystick_type"
