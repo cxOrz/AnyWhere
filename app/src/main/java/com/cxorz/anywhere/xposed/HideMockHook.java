@@ -14,6 +14,7 @@ import android.telephony.CellInfo;
 import android.util.Log;
 
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -74,6 +75,32 @@ public class HideMockHook implements IXposedHookLoadPackage {
                     }
                 }
             });
+
+            // 1.1 清理 IPC 反序列化路径中的 Mock 标记字段
+            // 微信小程序通过 LocationListener 回调接收 Location 时，对象由 Parcel 反序列化而来，
+            // mIsFromMockProvider / mMock 字段在 readFromParcel 中被直接赋值。
+            // 通过直接修改字段值，可同时覆盖 Java 方法调用和反射/JNI 直接访问两种检测路径。
+            try {
+                XposedHelpers.findAndHookMethod(Location.class, "readFromParcel", android.os.Parcel.class, new XC_MethodHook() {
+                    @Override
+                    protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                        clearMockFlagField((Location) param.thisObject);
+                    }
+                });
+            } catch (Throwable t) { XposedBridge.log(t); }
+
+            // 1.2 清理主动查询场景（getLastKnownLocation）中的 Mock 标记字段
+            try {
+                XposedHelpers.findAndHookMethod(LocationManager.class, "getLastKnownLocation", String.class, new XC_MethodHook() {
+                    @Override
+                    protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                        Location location = (Location) param.getResult();
+                        if (location != null) {
+                            clearMockFlagField(location);
+                        }
+                    }
+                });
+            } catch (Throwable t) { XposedBridge.log(t); }
 
             // 2. 屏蔽 Wi-Fi 和 基站
             try {
@@ -248,6 +275,28 @@ public class HideMockHook implements IXposedHookLoadPackage {
         } catch (Throwable t) {
             XposedBridge.log(t);
         }
+    }
+
+    /**
+     * 直接通过反射清除 Location 对象中的 Mock 标记字段。
+     * Android API 31+ 使用字段名 "mMock"，低版本使用 "mIsFromMockProvider"。
+     * 此方法可确保即使调用方通过反射或 JNI 读取字段值，也无法检测到模拟位置。
+     */
+    private static void clearMockFlagField(Location location) {
+        // API 31+ 使用 "mMock"
+        try {
+            Field field = Location.class.getDeclaredField("mMock");
+            field.setAccessible(true);
+            field.set(location, false);
+            return;
+        } catch (NoSuchFieldException ignored) {
+        } catch (Throwable t) {}
+        // API < 31 使用 "mIsFromMockProvider"
+        try {
+            Field field = Location.class.getDeclaredField("mIsFromMockProvider");
+            field.setAccessible(true);
+            field.set(location, false);
+        } catch (Throwable t) {}
     }
 
     private Object getBestDummyGnssStatus() {
