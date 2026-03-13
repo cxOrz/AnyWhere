@@ -691,6 +691,12 @@ public class MainActivity extends BaseActivity implements SensorEventListener {
             final EditText dialog_lng = view.findViewById(R.id.joystick_longitude);
             final EditText dialog_lat = view.findViewById(R.id.joystick_latitude);
 
+            // Restore last entered values
+            String savedLng = sharedPreferences.getString("last_input_longitude", "");
+            String savedLat = sharedPreferences.getString("last_input_latitude", "");
+            if (!savedLng.isEmpty()) dialog_lng.setText(savedLng);
+            if (!savedLat.isEmpty()) dialog_lat.setText(savedLat);
+
             final EditText dialog_ip = view.findViewById(R.id.input_ip_address);
             final com.google.android.material.button.MaterialButton btnGetIp = view
                     .findViewById(R.id.btn_get_ip_location);
@@ -741,6 +747,12 @@ public class MainActivity extends BaseActivity implements SensorEventListener {
                         } else {
                             mMarkLatLngMap = new GeoPoint(dialog_lat_double, dialog_lng_double);
                             mMarkName = "手动输入的坐标";
+
+                            // Save last entered values for next time
+                            sharedPreferences.edit()
+                                    .putString("last_input_longitude", dialog_lng_str)
+                                    .putString("last_input_latitude", dialog_lat_str)
+                                    .apply();
 
                             markMap();
                             mMapController.setCenter(mMarkLatLngMap);

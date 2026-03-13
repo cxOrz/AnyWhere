@@ -169,7 +169,7 @@ public class HistoryActivity extends BaseActivity {
     private void recordArchive() {
         double limits;
         try {
-            limits = Double.parseDouble(sharedPreferences.getString("setting_pos_history", getResources().getString(R.string.history_expiration)));
+            limits = Double.parseDouble(sharedPreferences.getString("setting_history_expiration", getResources().getString(R.string.history_expiration)));
         } catch (NumberFormatException e) {
             limits = 7;
         }
