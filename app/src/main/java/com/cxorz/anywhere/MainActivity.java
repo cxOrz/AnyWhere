@@ -928,6 +928,16 @@ public class MainActivity extends BaseActivity implements SensorEventListener {
     }
 
     private void recordCurrentLocation(double lng, double lat) {
+        ContentValues contentValues = new ContentValues();
+        contentValues.put(DataBaseHistoryLocation.DB_COLUMN_LOCATION, "Unknown Location");
+        contentValues.put(DataBaseHistoryLocation.DB_COLUMN_LONGITUDE_WGS84, String.valueOf(lng));
+        contentValues.put(DataBaseHistoryLocation.DB_COLUMN_LATITUDE_WGS84, String.valueOf(lat));
+        contentValues.put(DataBaseHistoryLocation.DB_COLUMN_TIMESTAMP, System.currentTimeMillis() / 1000);
+        contentValues.put(DataBaseHistoryLocation.DB_COLUMN_LONGITUDE_CUSTOM, Double.toString(lng));
+        contentValues.put(DataBaseHistoryLocation.DB_COLUMN_LATITUDE_CUSTOM, Double.toString(lat));
+
+        DataBaseHistoryLocation.saveHistoryLocation(mLocationHistoryDB, contentValues);
+
         new Thread(() -> {
             GeocoderNominatim geocoder = new GeocoderNominatim(Locale.getDefault(), getPackageName());
             try {
@@ -937,15 +947,12 @@ public class MainActivity extends BaseActivity implements SensorEventListener {
                     addressStr = addresses.get(0).getAddressLine(0);
                 }
 
-                ContentValues contentValues = new ContentValues();
-                contentValues.put(DataBaseHistoryLocation.DB_COLUMN_LOCATION, addressStr);
-                contentValues.put(DataBaseHistoryLocation.DB_COLUMN_LONGITUDE_WGS84, String.valueOf(lng));
-                contentValues.put(DataBaseHistoryLocation.DB_COLUMN_LATITUDE_WGS84, String.valueOf(lat));
-                contentValues.put(DataBaseHistoryLocation.DB_COLUMN_TIMESTAMP, System.currentTimeMillis() / 1000);
-                contentValues.put(DataBaseHistoryLocation.DB_COLUMN_LONGITUDE_CUSTOM, Double.toString(lng));
-                contentValues.put(DataBaseHistoryLocation.DB_COLUMN_LATITUDE_CUSTOM, Double.toString(lat));
-
-                DataBaseHistoryLocation.saveHistoryLocation(mLocationHistoryDB, contentValues);
+                ContentValues updateValues = new ContentValues();
+                updateValues.put(DataBaseHistoryLocation.DB_COLUMN_LOCATION, addressStr);
+                mLocationHistoryDB.update(DataBaseHistoryLocation.TABLE_NAME, updateValues,
+                        DataBaseHistoryLocation.DB_COLUMN_LONGITUDE_WGS84 + " = ? AND " +
+                        DataBaseHistoryLocation.DB_COLUMN_LATITUDE_WGS84 + " = ?",
+                        new String[] { String.valueOf(lng), String.valueOf(lat) });
             } catch (Exception e) {
                 XLog.e("ERROR: recordCurrentLocation", e);
             }
