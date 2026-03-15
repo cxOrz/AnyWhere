@@ -14,6 +14,7 @@ import android.telephony.CellInfo;
 import android.util.Log;
 
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -74,6 +75,77 @@ public class HideMockHook implements IXposedHookLoadPackage {
                     }
                 }
             });
+
+            // 1.1 从源头阻止 mock 标记被设置（覆盖所有路径，包括 LocationListener 同进程回调）
+            if (Build.VERSION.SDK_INT >= 31) {
+                try {
+                    XposedHelpers.findAndHookMethod(Location.class, "setMock", boolean.class, new XC_MethodHook() {
+                        @Override
+                        protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                            param.args[0] = false;
+                        }
+                    });
+                } catch (Throwable t) {}
+            }
+            try {
+                XposedHelpers.findAndHookMethod(Location.class, "setIsFromMockProvider", boolean.class, new XC_MethodHook() {
+                    @Override
+                    protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                        param.args[0] = false;
+                    }
+                });
+            } catch (Throwable t) {}
+
+            // 1.2 清理 IPC 反序列化路径中的 Mock 标记字段
+            // 微信小程序通过 LocationListener 回调接收 Location 时，对象由 Parcel 反序列化而来，
+            // mIsFromMockProvider / mMock 字段在 readFromParcel 中被直接赋值。
+            // 通过直接修改字段值，可同时覆盖 Java 方法调用和反射/JNI 直接访问两种检测路径。
+            try {
+                XposedHelpers.findAndHookMethod(Location.class, "readFromParcel", android.os.Parcel.class, new XC_MethodHook() {
+                    @Override
+                    protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                        clearMockFlagField((Location) param.thisObject);
+                    }
+                });
+            } catch (Throwable t) { XposedBridge.log(t); }
+
+            // 1.3 清理主动查询场景（getLastKnownLocation）中的 Mock 标记字段
+            try {
+                XposedHelpers.findAndHookMethod(LocationManager.class, "getLastKnownLocation", String.class, new XC_MethodHook() {
+                    @Override
+                    protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                        Location location = (Location) param.getResult();
+                        if (location != null) {
+                            clearMockFlagField(location);
+                        }
+                    }
+                });
+            } catch (Throwable t) { XposedBridge.log(t); }
+
+            // 1.4 Hook getCurrentLocation (API 30+)，拦截回调中的 Consumer 并清理 mock 标记
+            if (Build.VERSION.SDK_INT >= 30) {
+                try {
+                    XposedBridge.hookAllMethods(LocationManager.class, "getCurrentLocation", new XC_MethodHook() {
+                        @Override
+                        protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                            for (int i = 0; i < param.args.length; i++) {
+                                if (param.args[i] instanceof java.util.function.Consumer) {
+                                    @SuppressWarnings("unchecked")
+                                    final java.util.function.Consumer<Location> original =
+                                            (java.util.function.Consumer<Location>) param.args[i];
+                                    param.args[i] = (java.util.function.Consumer<Location>) location -> {
+                                        if (location != null) {
+                                            clearMockFlagField(location);
+                                        }
+                                        original.accept(location);
+                                    };
+                                    break;
+                                }
+                            }
+                        }
+                    });
+                } catch (Throwable t) { XposedBridge.log(t); }
+            }
 
             // 2. 屏蔽 Wi-Fi 和 基站
             try {
@@ -245,8 +317,55 @@ public class HideMockHook implements IXposedHookLoadPackage {
             XposedHelpers.findAndHookMethod(LocationManager.class, "getProviders", boolean.class, providerCleaner);
             XposedHelpers.findAndHookMethod(LocationManager.class, "getAllProviders", providerCleaner);
 
+            // 4.1 对非标准 provider 返回 false
+            XposedHelpers.findAndHookMethod(LocationManager.class, "isProviderEnabled", String.class, new XC_MethodHook() {
+                @Override
+                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                    if (param.hasThrowable()) return;
+                    String provider = (String) param.args[0];
+                    if (provider != null && !standardProviders.contains(provider)) {
+                        param.setResult(false);
+                    }
+                }
+            });
+
         } catch (Throwable t) {
             XposedBridge.log(t);
+        }
+    }
+
+    /**
+     * 直接通过反射清除 Location 对象中的 Mock 标记字段。
+     * Android API 31+ 使用字段名 "mMock"，低版本使用 "mIsFromMockProvider"。
+     * 此方法可确保即使调用方通过反射或 JNI 读取字段值，也无法检测到模拟位置。
+     */
+    private static volatile Field sMockField;
+    private static volatile boolean sMockFieldResolved;
+
+    private static void clearMockFlagField(Location location) {
+        if (!sMockFieldResolved) {
+            synchronized (HideMockHook.class) {
+                if (!sMockFieldResolved) {
+                    // API 31+ 使用 "mMock"
+                    try {
+                        sMockField = Location.class.getDeclaredField("mMock");
+                        sMockField.setAccessible(true);
+                    } catch (NoSuchFieldException ignored) {
+                        // API < 31 使用 "mIsFromMockProvider"
+                        try {
+                            sMockField = Location.class.getDeclaredField("mIsFromMockProvider");
+                            sMockField.setAccessible(true);
+                        } catch (NoSuchFieldException ignored2) {
+                        }
+                    }
+                    sMockFieldResolved = true;
+                }
+            }
+        }
+        if (sMockField != null) {
+            try {
+                sMockField.set(location, false);
+            } catch (Throwable t) {}
         }
     }
 

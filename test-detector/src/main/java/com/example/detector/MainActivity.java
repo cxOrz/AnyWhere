@@ -15,6 +15,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.provider.Settings;
 import android.telephony.CellInfo;
 import android.telephony.TelephonyManager;
 import android.widget.Button;
@@ -25,6 +26,7 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 
+import java.lang.reflect.Field;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
@@ -85,8 +87,11 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    private static final String TAG = "MockDetector";
+
     private void log(String msg) {
         String time = new SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(new Date());
+        android.util.Log.i(TAG, msg);
         runOnUiThread(() -> {
             logTv.append("\n[" + time + "] " + msg);
             scrollView.fullScroll(ScrollView.FOCUS_DOWN);
@@ -203,7 +208,153 @@ public class MainActivity extends AppCompatActivity {
         } else {
             log("❌ 警告：扫描到 " + cellList.size() + " 个基站！(Hook 失败)");
         }
+
+        // 7. 检查 getLastKnownLocation
+        log("正在检查 getLastKnownLocation...");
+        try {
+            Location lastGps = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+            if (lastGps != null) {
+                boolean lastMock = false;
+                if (Build.VERSION.SDK_INT >= 18) lastMock = lastGps.isFromMockProvider();
+                if (Build.VERSION.SDK_INT >= 31) lastMock = lastMock || lastGps.isMock();
+                if (lastMock) {
+                    log("❌ getLastKnownLocation(GPS): isFromMockProvider=true");
+                } else {
+                    log("✅ getLastKnownLocation(GPS): isFromMockProvider=false");
+                }
+            } else {
+                log("ℹ️ getLastKnownLocation(GPS) 返回 null");
+            }
+        } catch (Exception e) {
+            log("跳过 getLastKnownLocation: " + e.getMessage());
+        }
+
+        // 8. 检查 getCurrentLocation (API 30+)
+        if (Build.VERSION.SDK_INT >= 30) {
+            log("正在检查 getCurrentLocation (API 30+)...");
+            try {
+                locationManager.getCurrentLocation(LocationManager.GPS_PROVIDER, null,
+                        getMainExecutor(), location -> {
+                    if (location != null) {
+                        boolean mock = location.isMock();
+                        if (mock) {
+                            log("❌ getCurrentLocation: isMock=true");
+                        } else {
+                            log("✅ getCurrentLocation: isMock=false");
+                        }
+                    } else {
+                        log("ℹ️ getCurrentLocation 返回 null");
+                    }
+                });
+            } catch (Exception e) {
+                log("跳过 getCurrentLocation: " + e.getMessage());
+            }
+        }
+
+        // 9. 反射读取 mMock / mIsFromMockProvider 字段
+        log("正在检查反射字段访问...");
+        Location lastLoc = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+        if (lastLoc != null) {
+            checkMockField(lastLoc);
+        } else {
+            // 用 network provider 再试一次
+            try {
+                Location netLoc = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
+                if (netLoc != null) {
+                    checkMockField(netLoc);
+                } else {
+                    log("ℹ️ 无可用 Location 对象，跳过反射检测");
+                }
+            } catch (Exception e) {
+                log("ℹ️ 无可用 Location 对象，跳过反射检测");
+            }
+        }
+
+        // 10. 检查 Extras Bundle 中的 mock 相关 key
+        log("正在检查 Extras Bundle mock keys...");
+        if (lastLoc != null) {
+            checkExtrasMockKeys(lastLoc);
+        } else {
+            log("ℹ️ 无可用 Location 对象，跳过 Extras 检测");
+        }
+
+        // 11. 检查 isProviderEnabled 对非标准 provider
+        log("正在检查 isProviderEnabled...");
+        try {
+            boolean mockEnabled = locationManager.isProviderEnabled("mock");
+            if (mockEnabled) {
+                log("❌ isProviderEnabled(\"mock\") = true");
+            } else {
+                log("✅ isProviderEnabled(\"mock\") = false");
+            }
+        } catch (Exception e) {
+            log("✅ isProviderEnabled(\"mock\") 抛出异常 (正常)");
+        }
+
+        // 12. 检查 Settings.Secure mock_location
+        log("正在检查 Settings.Secure mock_location...");
+        try {
+            String mockSetting = Settings.Secure.getString(getContentResolver(), "mock_location");
+            if ("0".equals(mockSetting) || mockSetting == null) {
+                log("✅ mock_location = " + mockSetting);
+            } else {
+                log("❌ mock_location = " + mockSetting);
+            }
+        } catch (Exception e) {
+            log("跳过 mock_location: " + e.getMessage());
+        }
     }
 
     private void onGpsStatusChanged(int event) {}
+
+    private void checkMockField(Location location) {
+        // 先列出 Location 所有 boolean 字段，方便排查
+        Field[] allFields = Location.class.getDeclaredFields();
+        StringBuilder fieldList = new StringBuilder();
+        for (Field f : allFields) {
+            if (f.getType() == boolean.class) {
+                fieldList.append(f.getName()).append(", ");
+            }
+        }
+        log("Location boolean 字段: " + fieldList.toString());
+
+        // 依次尝试已知的 mock 字段名
+        String[] mockFieldNames = {"mMock", "mIsFromMockProvider", "mIsMock"};
+        for (String name : mockFieldNames) {
+            try {
+                Field field = Location.class.getDeclaredField(name);
+                field.setAccessible(true);
+                boolean val = (boolean) field.get(location);
+                if (val) {
+                    log("❌ 反射 " + name + " = true");
+                } else {
+                    log("✅ 反射 " + name + " = false");
+                }
+                return;
+            } catch (NoSuchFieldException ignored) {
+            } catch (Exception e) {
+                log("跳过 " + name + " 反射: " + e.getMessage());
+            }
+        }
+        log("⚠️ 未找到已知的 mock 字段，可能需要更新字段名列表");
+    }
+
+    private void checkExtrasMockKeys(Location location) {
+        Bundle extras = location.getExtras();
+        if (extras == null) {
+            log("ℹ️ Extras 为 null");
+            return;
+        }
+        String[] mockKeys = {"mockLocation"};
+        boolean found = false;
+        for (String key : mockKeys) {
+            if (extras.containsKey(key)) {
+                log("❌ Extras 包含 key: " + key);
+                found = true;
+            }
+        }
+        if (!found) {
+            log("✅ Extras 中无 mock 相关 key");
+        }
+    }
 }
