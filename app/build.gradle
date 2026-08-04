@@ -33,7 +33,8 @@ android {
         resourceConfigurations += ['zh', 'zh-rCN', 'en', 'en-rUS']
         ndk {
             //noinspection ChromeOsAbiSupport
-            abiFilters "arm64-v8a"
+            // 支持 arm64-v8a 与 armeabi-v7a，同时通过 splits 生成 universal APK
+            abiFilters "arm64-v8a", "armeabi-v7a"
         }
         signingConfig = signingConfigs.release
     }
@@ -96,18 +97,40 @@ android {
         includeInBundle = false
     }
 
-    // 指定输出的可执行程序的名字
+    // 按 ABI 拆分 APK，并生成 universal APK（universalApk true）
+    splits {
+        abi {
+            enable true
+            reset()
+            include 'arm64-v8a', 'armeabi-v7a'
+            universalApk true
+        }
+    }
+
+    // 指定输出的可执行程序的名字（兼容按 ABI 拆分与 universal）
     applicationVariants.configureEach { variant ->
         variant.outputs.configureEach { output ->
             def outputFile = output.outputFile
             if (outputFile != null && outputFile.name.endsWith('.apk')) {
-                def fileName
-                if (variant.buildType.name == 'release') {
-                    fileName = "AnyWhere_${defaultConfig.versionName}_arm64-v8a_release.apk"
-                } else {
-                    fileName = "AnyWhere_${defaultConfig.versionName}_arm64-v8a_debug.apk"
+                def abi = null
+                // 兼容不同 AGP 版本：尝试通过 API 读取 ABI 过滤器
+                try {
+                    abi = output.getFilter(com.android.build.OutputFile.ABI)
+                } catch (ignored) {
+                    // fallback: 某些 AGP 版本上 output.filters 可用
+                    if (output.filters != null) {
+                        def abiFilter = output.filters.find { it.filterType.name() == 'ABI' }
+                        if (abiFilter != null) abi = abiFilter.identifier
+                    }
                 }
-                outputFileName=fileName
+                def fileName
+                if (abi == null) {
+                    // universal APK（无 ABI 过滤器）
+                    fileName = "AnyWhere_${defaultConfig.versionName}_universal_${variant.buildType.name}.apk"
+                } else {
+                    fileName = "AnyWhere_${defaultConfig.versionName}_${abi}_${variant.buildType.name}.apk"
+                }
+                outputFileName = fileName
             }
         }
     }
