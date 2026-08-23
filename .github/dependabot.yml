@@ -11,7 +11,7 @@ updates:
     schedule:
       interval: "weekly"
     reviewers:
-      - "ZCShou"
+      - "cxOrz"
     ignore:
       - dependency-name: "*github-script*"
   # Updates for Gradle dependencies used in the app
@@ -20,7 +20,7 @@ updates:
     schedule:
       interval: "daily"
     reviewers:
-      - "ZCShou"
+      - "cxOrz"
     ignore:
       - dependency-name: "com.squareup.okhttp3:okhttp"
         versions: ["4.x"]

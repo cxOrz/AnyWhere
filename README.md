@@ -41,14 +41,14 @@
 
 ## 致谢
 
-本项目基于开源项目 [GoGoGo](https://github.com/ZCShou/GoGoGo) 进行二次开发。
+本项目基于开源项目 [GoGoGo](https://github.com/cxOrz/GoGoGo) 进行二次开发。
 
 我们在原项目的基础上进行了深度的精简与重构：
 - 移除了百度的专有地图 SDK，全面替换为开源的 **OpenStreetMap**。
 - 精简了冗余的 UI 和功能，提升了应用的启动速度和运行效率。
 - 重写了部分核心逻辑，以适应新的架构需求。
 
-在此向原作者 [ZCShou](https://github.com/ZCShou) 及其贡献者致以诚挚的感谢，感谢其开源精神为社区带来的贡献。
+在此向原作者 [cxOrz](https://github.com/cxOrz) 及其贡献者致以诚挚的感谢，感谢其开源精神为社区带来的贡献。
 
 ## 开源协议 (License)
 

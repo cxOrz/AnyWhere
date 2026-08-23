@@ -2,23 +2,27 @@ plugins {
     id "com.android.application"
 }
 
+def keystorePropertiesFile = rootProject.file('keystore.properties')
+def keystoreProperties = new Properties()
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.withInputStream { stream ->
+        keystoreProperties.load(stream)
+    }
+}
+
 android {
     ndkVersion = '26.2.11394342'
     compileSdk = 34
     namespace = 'com.cxorz.anywhere'
 
     signingConfigs {
-        debug {
-            storeFile rootProject.file('keystore/REDACTED.jks')
+        if (keystorePropertiesFile.exists()) {
+            release {
+                storeFile rootProject.file(keystoreProperties['storeFile'])
     storePassword 'REDACTED_PASSWORD'
-            keyAlias 'REDACTED_ALIAS'
+                keyAlias keystoreProperties['keyAlias']
     keyPassword 'REDACTED_PASSWORD'
-        }
-        release {
-            storeFile rootProject.file('keystore/REDACTED.jks')
-    storePassword 'REDACTED_PASSWORD'
-            keyAlias 'REDACTED_ALIAS'
-    keyPassword 'REDACTED_PASSWORD'
+            }
         }
     }
 
@@ -58,11 +62,13 @@ android {
             // R8 configuration files.
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
 
-            signingConfig = signingConfigs.release
+            if (keystorePropertiesFile.exists()) {
+                signingConfig = signingConfigs.release
+            }
             multiDexEnabled = true
         }
         debug {
-            signingConfig = signingConfigs.debug
+            // Use the standard local debug keystore instead of the release key.
         }
     }
 
