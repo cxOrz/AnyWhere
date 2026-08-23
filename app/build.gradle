@@ -37,7 +37,8 @@ android {
         resourceConfigurations += ['zh', 'zh-rCN', 'en', 'en-rUS']
         ndk {
             //noinspection ChromeOsAbiSupport
-            abiFilters "arm64-v8a"
+            // 同时构建 arm64-v8a 与 armeabi-v7a，并生成 universal APK
+            abiFilters "arm64-v8a", "armeabi-v7a"
         }
     }
 
@@ -101,18 +102,40 @@ android {
         includeInBundle = false
     }
 
+    // 按 ABI 拆分 APK，同时生成包含全部 ABI 的 universal APK
+    splits {
+        abi {
+            enable = true
+            reset()
+            include 'arm64-v8a', 'armeabi-v7a'
+            universalApk = true
+        }
+    }
+
     // 指定输出的可执行程序的名字
     applicationVariants.configureEach { variant ->
         variant.outputs.configureEach { output ->
             def outputFile = output.outputFile
             if (outputFile != null && outputFile.name.endsWith('.apk')) {
-                def fileName
-                if (variant.buildType.name == 'release') {
-                    fileName = "AnyWhere_${defaultConfig.versionName}_arm64-v8a_release.apk"
-                } else {
-                    fileName = "AnyWhere_${defaultConfig.versionName}_arm64-v8a_debug.apk"
+                def abi = null
+                try {
+                    abi = output.getFilter(com.android.build.OutputFile.ABI)
+                } catch (ignored) {
+                    if (output.filters != null) {
+                        def abiFilter = output.filters.find { it.filterType.name() == 'ABI' }
+                        if (abiFilter != null) {
+                            abi = abiFilter.identifier
+                        }
+                    }
                 }
-                outputFileName=fileName
+
+                def fileName
+                if (abi == null) {
+                    fileName = "AnyWhere_${defaultConfig.versionName}_universal_${variant.buildType.name}.apk"
+                } else {
+                    fileName = "AnyWhere_${defaultConfig.versionName}_${abi}_${variant.buildType.name}.apk"
+                }
+                outputFileName = fileName
             }
         }
     }
