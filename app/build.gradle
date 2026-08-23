@@ -19,9 +19,9 @@ android {
         if (keystorePropertiesFile.exists()) {
             release {
                 storeFile rootProject.file(keystoreProperties['storeFile'])
-    storePassword 'REDACTED_PASSWORD'
+                storePassword keystoreProperties['storePassword']
                 keyAlias keystoreProperties['keyAlias']
-    keyPassword 'REDACTED_PASSWORD'
+                keyPassword keystoreProperties['keyPassword']
             }
         }
     }
@@ -39,7 +39,6 @@ android {
             //noinspection ChromeOsAbiSupport
             abiFilters "arm64-v8a"
         }
-        signingConfig = signingConfigs.release
     }
 
     lint {
