@@ -1,3 +1,5 @@
+[English](README_EN.md) | 简体中文
+
 # AnyWhere
 
 AnyWhere 是一款面向 Android 开发调试、功能测试与个人研究的位置环境模拟工具。
@@ -9,8 +11,7 @@ AnyWhere 是一款面向 Android 开发调试、功能测试与个人研究的�
 
 ## 功能概述
 
-- 地图选点与坐标/IP定位
-- 静止、移动位置模拟
+- 静止、移动位置模拟、路径模拟
 - 在 LSPosed 框架中启用，以获得完整功能
 - 更多高级功能自行探索...
 
@@ -24,9 +25,9 @@ AnyWhere 是一款面向 Android 开发调试、功能测试与个人研究的�
 
 1. 从 [Releases](https://github.com/cxOrz/AnyWhere/releases) 下载适合设备架构的 APK；
 2. 在系统“开发者选项”中，将 AnyWhere 设为模拟位置信息应用；
-3. 在 [Vector](https://github.com/JingMatrix/Vector)（或其他 LSPosed 框架），启用本模块、勾选作用域；（可选步骤）
-5. 启动应用并授予位置权限；
-6. 在地图中选择位置并开始模拟。
+3. 在 [Vector](https://github.com/JingMatrix/Vector)（或其他 LSPosed 框架）中启用本模块，勾选需要测试的目标应用；无需、也不建议勾选“系统框架”等系统作用域；（可选步骤）
+4. 启动应用并授予位置权限；
+5. 在地图中选择位置并开始模拟。
 
 ## 项目沿革
 
